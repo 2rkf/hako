@@ -1,0 +1,160 @@
+<script setup>
+const threads = ref([]);
+const loading = ref(true);
+const { reloadTrigger } = useThreadStore();
+
+const reportThread = async (threadID) => {
+  return threadID;
+};
+
+const fetchThreads = async () => {
+  try {
+    threads.value = await $fetch("/api/threads");
+  } catch (error) {
+    console.error("Failed to fetch threads:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchThreads();
+});
+
+watch(reloadTrigger, () => {
+  fetchThreads();
+});
+</script>
+
+<template>
+  <UCard class="bg-midnight-50 dark:bg-midnight-900 transition-colors">
+    <template #header>
+      <h2 class="text-xl font-semibold text-primary noselect">
+        {{ $t("threads") }}
+      </h2>
+    </template>
+
+    <div v-if="loading" class="space-y-4">
+      <UCard v-for="n in 3" :key="n" :ui="{ body: { padding: 'p-4' } }">
+        <div class="flex flex-wrap gap-2 mb-2">
+          <USkeleton class="h-6 w-16 rounded" v-for="i in 3" :key="i" />
+        </div>
+        <USkeleton class="h-6 w-2/3 mb-2 rounded" />
+        <USkeleton class="h-4 w-1/4 mb-2 rounded" />
+        <USkeleton class="h-32 w-full rounded mb-3" />
+        <USkeleton class="h-4 w-full mb-1 rounded" />
+        <USkeleton class="h-4 w-5/6 mb-1 rounded" />
+        <USkeleton class="h-4 w-1/2 mb-1 rounded" />
+      </UCard>
+    </div>
+
+    <div v-else class="space-y-4">
+      <UCard
+        v-for="thread in threads.slice(0, 10)"
+        :key="thread.id"
+        class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900"
+        :ui="{ body: { padding: 'p-4' } }"
+      >
+        <div class="flex justify-between items-start mb-2">
+          <div class="flex flex-warp gap-2">
+            <UBadge
+              v-for="tag in thread.tags"
+              :key="tag"
+              color="primary"
+              variant="subtle"
+              class="noselect"
+            >
+              #{{ tag }}
+            </UBadge>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <UButton
+              variant="ghost"
+              color="error"
+              size="xs"
+              icon="i-heroicons-flag"
+              :padded="false"
+              @click="reportThread(thread.id)"
+            />
+          </div>
+        </div>
+
+        <h3 class="text-xl font-semibold text-primary noselect">
+          <NuxtLink class="hover:underline" :to="`/thread/${thread.id}`">
+            {{ thread.title }}
+          </NuxtLink>
+        </h3>
+
+        <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
+          <span class="noselect">ID: </span>
+          <code
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+            >{{ thread.id }}</code
+          >
+        </p>
+
+        <div v-if="thread.file" class="my-2">
+          <img
+            :src="thread.file"
+            alt="Thread Image"
+            class="rounded-md max-h-64 object-cover noselect"
+          />
+        </div>
+
+        <blockquote
+          class="border-l-4 border-midnight-300 dark:border-midnight-600 pl-4 italic text-midnight-700 dark:text-midnight-300 text-sm sm:text-base w-full"
+        >
+          <p class="line-clamp-3">
+            {{ thread.content }}
+          </p>
+        </blockquote>
+
+        <div
+          class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-2 noselect"
+        >
+          <span
+            >{{ $t("by") }}
+            <span
+              class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+              >{{ thread.author }}</span
+            ></span
+          >
+          <span
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+          >
+            {{ new Date(thread.createdAt).toLocaleDateString() }}
+            {{
+              new Date(thread.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            }}
+          </span>
+        </div>
+
+        <div
+          class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect"
+        >
+          {{ $t("comments") }}:
+          <span
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+            >{{ thread.threads?.length || 0 }}</span
+          >
+          | {{ $t("lastComment") }}:
+          <span
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+          >
+            {{ new Date(thread.updatedAt).toLocaleDateString() }}
+            {{
+              new Date(thread.updatedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            }}
+          </span>
+        </div>
+      </UCard>
+    </div>
+  </UCard>
+</template>
