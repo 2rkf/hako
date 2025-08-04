@@ -1,34 +1,7 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-:root {
-    /* Brick Red*/
-    --color-brick-red-50: #ecbfc9;
-    --color-brick-red-100: #e5a9b7;
-    --color-brick-red-200: #df94a5;
-    --color-brick-red-300: #d97e92;
-    --color-brick-red-400: #d26980;
-    --color-brick-red-500: #cc536e;
-    --color-brick-red-600: #c53e5c;
-    --color-brick-red-700: #bf284a;
-    --color-brick-red-800: #ac2443;
-    --color-brick-red-900: #99203b;
-    --color-brick-red-950: #861c34;
-    /* Midnight */
-    --color-midnight-50: #f6f6f8;
-    --color-midnight-100: #e8e8ec;
-    --color-midnight-200: #d1d1da;
-    --color-midnight-300: #ababbc;
-    --color-midnight-400: #9192a7;
-    --color-midnight-500: #777892;
-    --color-midnight-600: #5b5c79;
-    --color-midnight-700: #3f4058;
-    --color-midnight-800: #2c2d3f;
-    --color-midnight-900: #1e1e2c;
-    --color-midnight-950: #14141f;
-}
-
-@theme {
+@theme static {
     /* Brick Red*/
     --color-brick-red-50: #ecbfc9;
     --color-brick-red-100: #e5a9b7;
