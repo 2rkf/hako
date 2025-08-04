@@ -2,9 +2,41 @@
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
+const toast = useToast();
 
-const reportThread = async (threadID) => {
-  return threadID;
+const reportReason = ref("");
+const reportThreadOpen = ref(false);
+const closeReportModal = () => {
+  reportThreadOpen.value = !reportThreadOpen.value;
+};
+const reportThread = async (_threadID) => {
+  if (reportReason.value.length === 0) {
+    toast.add({
+      color: "error",
+      description: $t("error.emptyFields"),
+    });
+    return;
+  }
+
+  try {
+    // await $fetch(`/api/threads/${threadID}/report`, {
+    //   method: "POST",
+    //   body: { reason: reportReason.value },
+    // });
+    toast.add({
+      color: "success",
+      description: $t("thread.report.success"),
+    });
+    reportReason.value = "";
+  } catch (error) {
+    console.error("Report submission failed:", error);
+    toast.add({
+      color: "error",
+      description: $t("thread.report.error"),
+    });
+  } finally {
+    closeReportModal();
+  }
 };
 
 const fetchThreads = async () => {
@@ -69,14 +101,49 @@ watch(reloadTrigger, () => {
           </div>
 
           <div class="flex items-center gap-2">
-            <UButton
-              variant="ghost"
-              color="error"
-              size="xs"
-              icon="i-heroicons-flag"
-              :padded="false"
-              @click="reportThread(thread.id)"
-            />
+            <UModal
+              :title="$t('thread.report')"
+              :description="$t('thread.report.info')"
+              :close="false"
+              v-model:open="reportThreadOpen"
+            >
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-flag"
+                :padded="false"
+              />
+              <template #body>
+                <div class="space-y-4 noselect">
+                  <UFormField :label="$t('reason')" required>
+                    <UInput
+                      :ui="{ base: 'bg-midnight-50 dark:bg-midnight-800' }"
+                      v-model="reportReason"
+                      class="w-full"
+                      size="lg"
+                      maxlength="100"
+                      variant="soft"
+                    />
+                  </UFormField>
+
+                  <div class="flex justify-end gap-2">
+                    <UButton
+                      :label="$t('report')"
+                      color="error"
+                      variant="solid"
+                      @click="reportThread(thread.id)"
+                    />
+                    <UButton
+                      :label="$t('cancel')"
+                      color="neutral"
+                      variant="outline"
+                      @click="closeReportModal"
+                    />
+                  </div>
+                </div>
+              </template>
+            </UModal>
           </div>
         </div>
 

@@ -20,6 +20,13 @@ const languages = ref([
   },
 ]);
 
+const cooldownGenerateUntil = useCookie("captcha_generate_until");
+const cooldownRefreshUntil = useCookie("captcha_refresh_until");
+
+const refreshCount = ref(0);
+const cooldown = ref(0);
+let cooldownInterval = null;
+
 const newThread = ref({
   title: "",
   tags: [],
@@ -29,9 +36,56 @@ const newThread = ref({
   file: undefined,
 });
 
-const getCaptcha = async () => {
-  const previousUUID = submission.value.uuid;
+const startCooldown = (type = "generate") => {
+  const now = Date.now();
+  const cooldownTime = type === "generate" ? 60 : 10 * (refreshCount.value + 1);
+  const until = now + cooldownTime * 1000;
 
+  if (type === "generate") {
+    cooldownGenerateUntil.value = until;
+  } else {
+    cooldownRefreshUntil.value = until;
+    refreshCount.value++;
+  }
+
+  updateCooldown();
+  if (cooldownInterval) clearInterval(cooldownInterval);
+  cooldownInterval = setInterval(updateCooldown, 1000);
+};
+
+const updateCooldown = () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const isGenerate = generateLeft > refreshLeft;
+  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
+
+  if (cooldown.value <= 0) {
+    clearInterval(cooldownInterval);
+  }
+};
+
+const getCaptcha = async () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const isGenerate = !captcha.value;
+  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
+
+  if (isGenerate) refreshCount.value = 0;
+  if (isOnCooldown) return;
+
+  const previousUUID = submission.value.uuid;
   captcha.value = await $fetch("/api/captcha/generate");
   submission.value.uuid = captcha.value.uuid;
   submission.value.captcha = "";
@@ -39,6 +93,8 @@ const getCaptcha = async () => {
   if (previousUUID && previousUUID !== submission.value.uuid) {
     captchaStorage.delete(previousUUID);
   }
+
+  startCooldown(isGenerate ? "generate" : "refresh");
 };
 
 const createThread = async () => {
@@ -52,6 +108,14 @@ const createThread = async () => {
     toast.add({
       color: "error",
       description: $t("error.emptyFields"),
+    });
+    return;
+  }
+
+  if (!captcha.value || !captcha.value.svg) {
+    toast.add({
+      color: "error",
+      description: $t("captcha.error"),
     });
     return;
   }
@@ -165,6 +229,23 @@ const state = reactive({
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
 }
+
+onMounted(() => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const remaining = Math.max(generateLeft, refreshLeft);
+  if (remaining > 0) {
+    cooldown.value = remaining / 1000;
+
+    cooldownInterval = setInterval(updateCooldown, 1000);
+  }
+});
 </script>
 
 <template>
@@ -214,11 +295,19 @@ function createObjectUrl(file) {
         <div class="flex flex-col gap-2">
           <div class="flex items-center gap-4">
             <span
-              v-if="captcha"
+              v-if="cooldown > 0"
+              class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+            >
+              {{ Math.ceil(cooldown) }}s
+            </span>
+
+            <span
+              v-else-if="captcha"
               class="border-midnight-400 dark:border-midnight-600 border-2"
               v-html="captcha.svg"
             />
-            <UButton @click="getCaptcha()" variant="outline" color="secondary">
+
+            <UButton :disabled="cooldown > 0" @click="getCaptcha()" variant="outline" color="secondary">
               {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
             </UButton>
           </div>
