@@ -113,6 +113,7 @@ watch(reloadTrigger, () => {
                 size="xs"
                 icon="i-lucide-flag"
                 :padded="false"
+                disabled
               />
               <template #body>
                 <div class="space-y-4 noselect">
@@ -203,12 +204,12 @@ watch(reloadTrigger, () => {
         <div
           class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect"
         >
-          {{ $t("comments") }}:
+          {{ $t("replies") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.threads?.length || 0 }}</span
+            >{{ thread.replies?.length || 0 }}</span
           >
-          | {{ $t("lastComment") }}:
+          | {{ $t("replies.last") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
           >

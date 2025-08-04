@@ -2,7 +2,6 @@
   <UApp
     :toaster="{
       position: 'top-right',
-      duration: 2000,
       ui: {
         base: 'bg-muted dark:bg-midnight-900',
       }

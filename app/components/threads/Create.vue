@@ -1,6 +1,7 @@
 <script setup>
 import * as z from "zod";
 import { captchaStorage } from "~~/server/utils/storage";
+import { fibonacci } from "~~/server/utils/fibonacci";
 
 const { triggerReload } = useThreadStore();
 const toast = useToast();
@@ -32,13 +33,16 @@ const newThread = ref({
   tags: [],
   content: "",
   author: "",
-  language: "",
+  locale: "",
   file: undefined,
 });
 
 const startCooldown = (type = "generate") => {
   const now = Date.now();
-  const cooldownTime = type === "generate" ? 60 : 10 * (refreshCount.value + 1);
+  const cooldownTime =
+    type === "generate"
+      ? 60
+      : fibonacci(refreshCount.value) * 5;
   const until = now + cooldownTime * 1000;
 
   if (type === "generate") {
@@ -102,7 +106,7 @@ const createThread = async () => {
     !newThread.value.title ||
     !newThread.value.content ||
     !submission.value.captcha ||
-    !newThread.value.language ||
+    !newThread.value.locale ||
     newThread.value.tags.length === 0
   ) {
     toast.add({
@@ -139,6 +143,7 @@ const createThread = async () => {
   formData.append("content", newThread.value.content);
   formData.append("author", newThread.value.author || "Anonymous");
   formData.append("tags", JSON.stringify(newThread.value.tags));
+  formData.append("locale", newThread.value.locale || "en");
   if (newThread.value.file) {
     formData.append("file", newThread.value.file);
   }
@@ -276,7 +281,7 @@ onMounted(() => {
       <UFormField class="noselect" :label="$t('thread.language')" required>
         <USelect
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-          v-model="newThread.language"
+          v-model="newThread.locale"
           :items="languages"
           :placeholder="$t('thread.languageSelect')"
         />
@@ -298,7 +303,7 @@ onMounted(() => {
               v-if="cooldown > 0"
               class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
             >
-              {{ Math.ceil(cooldown) }}s
+              {{ Math.ceil(cooldown) }}{{ $t("second") }}
             </span>
 
             <span
@@ -307,7 +312,12 @@ onMounted(() => {
               v-html="captcha.svg"
             />
 
-            <UButton :disabled="cooldown > 0" @click="getCaptcha()" variant="outline" color="secondary">
+            <UButton
+              :disabled="cooldown > 0"
+              @click="getCaptcha()"
+              variant="outline"
+              color="secondary"
+            >
               {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
             </UButton>
           </div>
