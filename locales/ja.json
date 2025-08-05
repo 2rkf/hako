@@ -39,5 +39,6 @@
     "captcha.generate": "生成",
     "captcha.refresh": "更新",
     "captcha.error": "キャプチャの送信に失敗しました。もう一度お試しください。",
+    "captcha.onCooldown": "キャプチャを送信する前に、クールダウン期間が終了するのをお待ちください。",
     "captcha.success": "キャプチャが正常に送信されました。"
 }

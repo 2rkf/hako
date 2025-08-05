@@ -39,5 +39,6 @@
   "captcha.generate": "Generate",
   "captcha.refresh": "Refresh",
   "captcha.error": "Captcha submission failed. Please try again.",
+  "captcha.onCooldown": "Please wait for the cooldown period to end before submitting the captcha.",
   "captcha.success": "Captcha submitted successfully."
 }

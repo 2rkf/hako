@@ -124,6 +124,15 @@ const createThread = async () => {
     return;
   }
 
+  if (cooldown.value > 0) {
+    submission.value.captcha = "";
+    toast.add({
+      color: "error",
+      description: $t("captcha.onCooldown"),
+    });
+    return;
+  }
+
   const captchaResponse = await $fetch("/api/captcha/submit", {
     method: "POST",
     body: submission.value,
