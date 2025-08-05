@@ -173,13 +173,13 @@ watch(reloadTrigger, () => {
         <blockquote
           class="border-l-4 border-midnight-300 dark:border-midnight-600 pl-4 italic text-midnight-700 dark:text-midnight-300 text-sm sm:text-base w-full"
         >
-          <p class="line-clamp-3">
+          <p class="whitespace-pre-wrap line-clamp-5">
             {{ thread.content }}
           </p>
         </blockquote>
 
         <div
-          class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-2 noselect"
+          class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-4 noselect"
         >
           <span
             >{{ $t("by") }}
