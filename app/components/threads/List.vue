@@ -1,4 +1,6 @@
 <script setup>
+import { parseBBCode } from "~~/server/utils/bbcode";
+
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
@@ -173,9 +175,10 @@ watch(reloadTrigger, () => {
         <blockquote
           class="border-l-4 border-midnight-300 dark:border-midnight-600 pl-4 italic text-midnight-700 dark:text-midnight-300 text-sm sm:text-base w-full"
         >
-          <p class="whitespace-pre-wrap line-clamp-5">
-            {{ thread.content }}
-          </p>
+          <div
+            v-html="parseBBCode(thread.content)"
+            class="whitespace-pre-warp line-clamp-10"
+          />
         </blockquote>
 
         <div
