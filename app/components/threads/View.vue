@@ -226,6 +226,7 @@ async function submitReply() {
     form.value = { author: "", content: "", file: null };
     submission.value.captcha = "";
     state.file = undefined;
+    captcha.value = undefined;
     triggerReload();
   } catch (error) {
     console.error("Failed to post reply:", error);
