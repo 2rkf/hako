@@ -301,7 +301,7 @@ onMounted(() => {
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
           v-model="newThread.content"
           class="w-full"
-          maxlength="2000"
+          maxlength="10000"
         />
       </UFormField>
 
