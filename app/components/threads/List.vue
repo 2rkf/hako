@@ -166,7 +166,7 @@ watch(reloadTrigger, () => {
 
         <div v-if="thread.file" class="my-2">
           <img
-            :src="thread.file"
+            :src="thread.file.url"
             alt="Thread Image"
             class="rounded-md max-h-64 object-cover noselect"
           />

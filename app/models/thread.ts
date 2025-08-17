@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import type { Thread, ReplyThread, ThreadFile } from "~/types/thread";
+import type { Thread, ReplyThread, ThreadFile, ThreadReport } from "~/types/thread";
 
 const threadSchema = new Schema<Thread>({
     author: { type: String, required: true },
@@ -14,8 +14,7 @@ const threadSchema = new Schema<Thread>({
     locale: { type: String, enum: ["en", "ja"], default: "en" },
     pinned: { type: Boolean, default: false },
     replies: { type: [Schema.Types.Mixed] as unknown as ReplyThread[], default: [] },
-    reported: { type: Boolean, default: false },
-    reportCount: { type: Number, default: 0 },
+    reports: { type: [Schema.Types.Mixed] as unknown as ThreadReport, default: [] },
     tags: { type: [String], default: [] },
     title: { type: String, required: true },
     updatedAt: { type: Date, default: Date.now }

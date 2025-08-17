@@ -3,13 +3,6 @@ export type ReplyThread = Omit<Thread, "closed" | "locale" | "pinned" | "replies
     replyTo: string;
 };
 
-export interface ThreadFile {
-    name: string;
-    size: number;
-    type: string;
-    url: string;
-};
-
 export interface Thread {
     author: string;
     closed?: boolean;
@@ -23,9 +16,21 @@ export interface Thread {
     locale: Locale;
     pinned?: boolean;
     replies: ReplyThread[];
-    reported?: boolean;
-    reportCount?: number;
+    reports?: ThreadReport[];
     tags: string[];
     title: string;
     updatedAt: Date;
 };
+
+export interface ThreadFile {
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+};
+
+export interface ThreadReport {
+    reason: string;
+    reporter: string;
+    reportedAt: Date;
+}
