@@ -13,8 +13,15 @@ export default defineEventHandler(async (event) => {
   const author = formData.find((f) => f.name === "author")?.data?.toString();
   const locale = formData.find((f) => f.name === "locale")?.data?.toString();
   const tagsRaw = formData.find((f) => f.name === "tags")?.data?.toString();
+  const file = formData.find((f) => f.name === "file");
 
   const tags = tagsRaw ? JSON.parse(tagsRaw) : [];
+
+  let threadFile = null;
+
+  if (file?.type?.startsWith("image/")) {
+    threadFile = await uploadThreadFile(file as any);
+  }
 
   const id = crypto.randomUUID();
   const createdAt = new Date();
@@ -32,12 +39,11 @@ export default defineEventHandler(async (event) => {
     closed: false,
     deleted: false,
     deletedAt: null,
-    file: null,
+    file: threadFile,
     hidden: false,
     pinned: false,
     replies: [],
-    reported: false,
-    reportCount: 0,
+    reports: [],
   } as Thread;
 
   const newThread = new ThreadModel(thread);

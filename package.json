@@ -11,6 +11,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.859.0",
     "@nuxt/eslint": "^1.7.1",
     "@nuxt/ui": "^3.3.0",
     "@nuxtjs/i18n": "^10.0.3",
