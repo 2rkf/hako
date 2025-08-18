@@ -24,6 +24,12 @@
   "thread.post": "Post Thread",
   "thread.created": "Thread created successfully.",
   "thread.reply": "Post a Reply",
+  "thread.replyingTo": "Replying To",
+  "thread.replyingTo.placeholder": "Select a reply to respond to",
+  "thread.replyingTo.check": "Replying to: ",
+  "thread.replyingTo.check.reply": "Reply #{id}",
+  "thread.replyingTo.mainOr": "Or ",
+  "thread.replyingTo.main": "reply to the main thread",
   "thread.report": "Report Thread",
   "thread.report.info": "If you believe this thread violates our community guidelines, please report it. Your report will be reviewed by our moderators.",
   "thread.report.success": "Report submitted successfully. Thank you for helping us maintain a respectful community.",
@@ -35,6 +41,7 @@
   "replies.last": "Last Reply",
   "reason": "Reason",
   "reply": "Reply",
+  "reply.post": "Post Reply",
   "report": "Report",
   "cancel": "Cancel",
   "second": "s",
@@ -43,5 +50,6 @@
   "captcha.refresh": "Refresh",
   "captcha.error": "Captcha submission failed. Please try again.",
   "captcha.onCooldown": "Please wait for the cooldown period to end before submitting the captcha.",
-  "captcha.success": "Captcha submitted successfully."
+  "captcha.success": "Captcha submitted successfully.",
+  "backward": "Back"
 }

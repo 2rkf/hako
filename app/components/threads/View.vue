@@ -86,6 +86,7 @@ const form = ref({
   author: "",
   content: "",
   file: null,
+  replyTo: "",
 });
 
 const state = reactive({
@@ -206,7 +207,7 @@ async function submitReply() {
   const payload = new FormData();
   payload.append("author", form.value.author || "Anonymous");
   payload.append("content", form.value.content);
-  payload.append("replyTo", props.thread.id);
+  payload.append("replyTo", form.value.replyTo || props.thread.id);
 
   if (form.value.file) {
     payload.append("file", form.value.file);
@@ -268,6 +269,17 @@ async function reportThread(threadID) {
   }
 }
 
+const replyFormSection = ref(null);
+
+const scrollToForm = (replyId) => {
+  form.value.replyTo = replyId;
+
+  nextTick(() => {
+    replyFormSection.value?.scrollIntoView({ behavior: "smooth" });
+    document.querySelector("textarea")?.focus();
+  });
+};
+
 onMounted(() => {
   const now = Date.now();
   const generateLeft = cooldownGenerateUntil.value
@@ -283,12 +295,51 @@ onMounted(() => {
 
     cooldownInterval = setInterval(updateCooldown, 1000);
   }
+
+  if (window.location.hash) {
+    setTimeout(() => {
+      const element = document.getElementById(
+        window.location.hash.substring(1)
+      );
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 1000);
+  }
+});
+
+useHead({
+  title: `${props.thread.title} - Hako`,
+  meta: [
+    { property: "og:title", content: `${props.thread.title} - Hako` },
+    { property: "og:site_name", content: "2rkf" },
+    {
+      property: "og:description",
+      content: "A bulletin board website.",
+    },
+    { property: "og:image", content: props.thread.file?.url || "/hako.png" },
+    { property: "og:image:type", content: "image/png" },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { name: "theme-color", content: "#cc536e" },
+    { "http-equiv": "x-ua-compatible", content: "IE=edge" },
+    { name: "viewport", content: "width=device-width, initial-scale=1.0" },
+    { property: "og:image:type", content: "image/png" },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { name: "theme-color", content: "#cc536e" },
+    { "http-equiv": "x-ua-compatible", content: "IE=edge" },
+    { name: "viewport", content: "width=device-width, initial-scale=1.0" },
+  ],
 });
 </script>
 
 <template>
   <div class="space-y-6 mt-6">
-    <UCard class="bg-midnight-50 dark:bg-midnight-900 transition-colors">
+    <UCard
+      :id="thread.id"
+      class="bg-midnight-50 dark:bg-midnight-900 transition-colors"
+    >
       <template #header>
         <div class="flex items-center gap-2">
           <Back />
@@ -297,7 +348,7 @@ onMounted(() => {
           </h2>
         </div>
       </template>
-  
+
       <UCard
         class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-6"
         :ui="{ body: { padding: 'p-4' } }"
@@ -314,22 +365,33 @@ onMounted(() => {
               #{{ tag }}
             </UBadge>
           </div>
-  
-          <UButton
-            variant="ghost"
-            color="error"
-            size="xs"
-            icon="i-lucide-flag"
-            :padded="false"
-            disabled
-            @click="reportThreadOpen = true"
-          />
+
+          <div class="space-x-2">
+            <UButton
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              icon="i-lucide-reply"
+              :padded="false"
+              class="cursor-pointer"
+              @click="scrollToForm(thread.id)"
+            />
+            <UButton
+              variant="ghost"
+              color="error"
+              size="xs"
+              icon="i-lucide-flag"
+              :padded="false"
+              disabled
+              @click="reportThreadOpen = true"
+            />
+          </div>
         </div>
-  
+
         <h3 class="text-xl font-semibold text-primary noselect">
           {{ thread.title }}
         </h3>
-  
+
         <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
           <span class="noselect">ID: </span>
           <code
@@ -340,7 +402,7 @@ onMounted(() => {
         </p>
         <hr class="mt-4 mb-4 text-midnight-300 dark:text-midnight-700" />
         <div v-html="parseBBCode(thread.content)" />
-  
+
         <div v-if="thread.file" class="my-2">
           <img
             :src="thread.file.url"
@@ -348,7 +410,7 @@ onMounted(() => {
             class="rounded-md max-h-96 object-contain"
           />
         </div>
-  
+
         <div
           class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-4 noselect"
         >
@@ -367,36 +429,48 @@ onMounted(() => {
           </span>
         </div>
       </UCard>
-  
+
       <div class="space-y-4 mb-6">
         <h3 class="text-lg font-semibold text-primary noselect">
           {{ $t("replies") }} ({{ thread.replies?.length || 0 }})
         </h3>
-  
+
         <UCard
           v-for="reply in thread.replies"
           :key="reply.id"
+          :id="reply.id"
           class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-4"
           :ui="{ body: { padding: 'p-4' } }"
         >
           <div class="flex justify-between items-start mb-2">
             <div class="flex flex-wrap gap-2">
               <h3 class="text-xl font-semibold text-primary noselect">
-                {{ $t("thread") }} #{{ reply.id }}
+                {{ $t("reply") }} #{{ reply.id }}
               </h3>
             </div>
-  
-            <UButton
-              variant="ghost"
-              color="error"
-              size="xs"
-              icon="i-lucide-flag"
-              :padded="false"
-              disabled
-              @click="reportThreadOpen = true"
-            />
+
+            <div class="space-x-2">
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-reply"
+                :padded="false"
+                class="cursor-pointer"
+                @click="scrollToForm(reply.id)"
+              />
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-flag"
+                :padded="false"
+                disabled
+                @click="reportThreadOpen = true"
+              />
+            </div>
           </div>
-  
+
           <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
             <span class="noselect">ID: </span>
             <code
@@ -404,14 +478,26 @@ onMounted(() => {
             >
               {{ reply.id }}
             </code>
+            <span v-if="reply.replyTo" class="inline-flex items-center">
+              <UIcon
+                name="i-lucide-reply"
+                class="w-3 h-3 text-midnight-400 dark:text-midnight-500 mx-0.5"
+              />
+              <code
+                @click="navigateTo(`#${reply.replyTo}`)"
+                class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
+              >
+                {{ reply.replyTo }}
+              </code>
+            </span>
           </p>
           <hr class="mt-4 mb-4 text-midnight-300 dark:text-midnight-700" />
-  
+
           <div
             v-html="parseBBCode(reply.content)"
             class="mt-1 text-midnight-700 dark:text-midnight-300"
           />
-  
+
           <div v-if="reply.file" class="my-2">
             <img
               :src="reply.file.url"
@@ -419,7 +505,7 @@ onMounted(() => {
               class="rounded-md max-h-64 object-contain"
             />
           </div>
-  
+
           <div
             class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-4 noselect"
           >
@@ -440,132 +526,182 @@ onMounted(() => {
         </UCard>
       </div>
     </UCard>
-    <UCard class="mb-8 bg-midnight-50 dark:bg-midnight-900">
-      <h2
-        class="text-xl font-semibold mb-4 text-brick-red-400 px-4 pt-4 noselect"
-      >
-        {{ $t("thread.reply") }}
-      </h2>
-  
-      <form @submit.prevent="submitReply" class="space-y-4 px-4 pb-4">
-        <UFormField class="noselect" :label="$t('thread.content')" required>
-          <UTextarea
-            :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-            v-model="form.content"
-            class="w-full"
-            maxlength="10000"
-          />
-        </UFormField>
-  
-        <UFormField class="noselect" :label="$t('captcha')" required>
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center gap-4">
-              <span
-                v-if="cooldown > 0"
-                class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
-              >
-                {{ Math.ceil(cooldown) }}{{ $t("second") }}
-              </span>
-  
-              <span
-                v-else-if="captcha"
-                class="border-midnight-400 dark:border-midnight-600 border-2"
-                v-html="captcha.svg"
-              />
-  
-              <UButton
-                :disabled="cooldown > 0"
-                @click="getCaptcha()"
-                variant="outline"
-                color="secondary"
-              >
-                {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
-              </UButton>
-            </div>
-          </div>
-          <UInput
-            :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-            maxlength="6"
-            class="mt-2"
-            v-model="submission.captcha"
-          />
-        </UFormField>
-  
-        <UFormField :label="$t('thread.author')" class="noselect">
-          <UInput
-            :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-            v-model="form.author"
-            placeholder="Anonymous"
-            maxlength="50"
-          />
-        </UFormField>
-  
-        <UForm :schema="schema" :state="state" class="noselect">
-          <UFormField
-            name="file"
-            :label="$t('thread.file')"
-            :description="$t('thread.file.description')"
-          >
-            <UFileUpload
-              v-slot="{ open, removeFile }"
-              v-model="state.file"
-              accept="image/*"
-              @update:modelValue="
-                (file) => {
-                  form.file = file;
-                }
-              "
-            >
-              <div class="flex flex-wrap items-center gap-3">
-                <UAvatar
-                  size="lg"
-                  :src="state.file ? createObjectUrl(state.file) : undefined"
-                  icon="i-lucide-image"
-                  class="rounded-sm"
-                />
-                <UButton
-                  :label="
-                    state.file
-                      ? $t('thread.file.change')
-                      : $t('thread.file.upload')
-                  "
-                  color="neutral"
-                  variant="outline"
-                  @click="open()"
-                />
-              </div>
-  
-              <p v-if="state.file" class="text-xs text-muted mt-1.5">
-                {{ state.file.name }}
-                <UButton
-                  :label="$t('thread.file.remove')"
-                  color="error"
-                  variant="link"
-                  size="xs"
-                  class="p-0"
-                  @click="
-                    removeFile();
-                    form.file = undefined;
-                  "
-                />
-              </p>
-            </UFileUpload>
+    <div ref="replyFormSection">
+      <UCard class="mb-8 bg-midnight-50 dark:bg-midnight-900">
+        <h2
+          class="text-xl font-semibold mb-4 text-brick-red-400 px-4 pt-4 noselect"
+        >
+          {{ $t("thread.reply") }}
+        </h2>
+
+        <form @submit.prevent="submitReply" class="space-y-4 px-4 pb-4">
+          <UFormField class="noselect" :label="$t('thread.content')" required>
+            <UTextarea
+              :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+              v-model="form.content"
+              class="w-full"
+              maxlength="10000"
+            />
           </UFormField>
-        </UForm>
-  
-        <div class="flex justify-end">
-          <UButton
-            type="submit"
-            variant="outline"
-            color="primary"
-            class="text-gray-700 dark:text-gray-300 px-4 py-2 rounded transition-colors noselect cursor-pointer"
-          >
-            {{ $t("reply") }}
-          </UButton>
-        </div>
-      </form>
-    </UCard>
-  
+
+          <UFormField class="noselect" :label="$t('captcha')" required>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-4">
+                <span
+                  v-if="cooldown > 0"
+                  class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+                >
+                  {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                </span>
+
+                <span
+                  v-else-if="captcha"
+                  class="border-midnight-400 dark:border-midnight-600 border-2"
+                  v-html="captcha.svg"
+                />
+
+                <UButton
+                  :disabled="cooldown > 0"
+                  @click="getCaptcha()"
+                  variant="outline"
+                  color="secondary"
+                >
+                  {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+                </UButton>
+              </div>
+            </div>
+            <UInput
+              :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+              maxlength="6"
+              class="mt-2"
+              v-model="submission.captcha"
+            />
+          </UFormField>
+
+          <UFormField :label="$t('thread.replyingTo')" class="noselect">
+            <USelect
+              :ui="{
+                base: 'bg-white dark:bg-midnight-800',
+                content: 'min-w-fit',
+              }"
+              v-model="form.replyTo"
+              :items="
+                thread.replies.map((r) => ({
+                  label: `${$t('reply')} #${r.id} - ${formatDate(r.createdAt)}`,
+                  value: r.id,
+                }))
+              "
+              :placeholder="$t('thread.replyingTo.placeholder')"
+              class="mb-2"
+            />
+
+            <div
+              v-if="form.replyTo"
+              class="flex items-center gap-2 text-sm mt-2"
+            >
+              <span class="text-midnight-500 dark:text-midnight-400">
+                {{ $t("thread.replyingTo.check") }}
+              </span>
+              <NuxtLink
+                :to="`/thread/${thread.id}#${form.replyTo}`"
+                class="text-brick-red-400 hover:underline flex items-center gap-1"
+              >
+                <span>{{
+                  $t("thread.replyingTo.check.reply", { id: form.replyTo })
+                }}</span>
+              </NuxtLink>
+            </div>
+
+            <div class="text-sm mt-2">
+              <span class="text-midnight-500 dark:text-midnight-400">{{
+                $t("thread.replyingTo.mainOr")
+              }}</span>
+              <NuxtLink
+                :to="`/thread/${thread.id}`"
+                class="text-brick-red-400 hover:underline"
+                @click.prevent="form.replyTo = thread.id"
+              >
+                {{ $t("thread.replyingTo.main") }}
+              </NuxtLink>
+            </div>
+          </UFormField>
+
+          <UFormField :label="$t('thread.author')" class="noselect">
+            <UInput
+              :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+              v-model="form.author"
+              placeholder="Anonymous"
+              maxlength="50"
+            />
+          </UFormField>
+
+          <UForm :schema="schema" :state="state" class="noselect">
+            <UFormField
+              name="file"
+              :label="$t('thread.file')"
+              :description="$t('thread.file.description')"
+            >
+              <UFileUpload
+                v-slot="{ open, removeFile }"
+                v-model="state.file"
+                accept="image/*"
+                @update:modelValue="
+                  (file) => {
+                    form.file = file;
+                  }
+                "
+              >
+                <div class="flex flex-wrap items-center gap-3">
+                  <UAvatar
+                    size="lg"
+                    :src="state.file ? createObjectUrl(state.file) : undefined"
+                    icon="i-lucide-image"
+                    class="rounded-sm"
+                  />
+                  <UButton
+                    :label="
+                      state.file
+                        ? $t('thread.file.change')
+                        : $t('thread.file.upload')
+                    "
+                    color="neutral"
+                    variant="outline"
+                    @click="open()"
+                  />
+                </div>
+
+                <p v-if="state.file" class="text-xs text-muted mt-1.5">
+                  {{ state.file.name }}
+                  <UButton
+                    :label="$t('thread.file.remove')"
+                    color="error"
+                    variant="link"
+                    size="xs"
+                    class="p-0"
+                    @click="
+                      removeFile();
+                      form.file = undefined;
+                    "
+                  />
+                </p>
+              </UFileUpload>
+            </UFormField>
+          </UForm>
+
+          <div class="flex justify-end">
+            <UButton
+              type="submit"
+              variant="outline"
+              color="primary"
+              class="text-gray-700 dark:text-gray-300 px-4 py-2 rounded transition-colors noselect cursor-pointer"
+            >
+              {{ $t("reply") }}
+            </UButton>
+          </div>
+        </form>
+      </UCard>
+    </div>
+
     <UModal
       :title="$t('thread.report')"
       :description="$t('thread.report.info')"
@@ -584,7 +720,7 @@ onMounted(() => {
               variant="soft"
             />
           </UFormField>
-  
+
           <div class="flex justify-end gap-2">
             <UButton
               :label="$t('report')"

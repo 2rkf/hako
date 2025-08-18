@@ -24,6 +24,12 @@
     "thread.post": "スレッドを投稿",
     "thread.created": "スレッドが正常に作成されました。",
     "thread.reply": "返信を投稿",
+    "thread.replyingTo": "返信先",
+    "thread.replyingTo.placeholder": "返信するリプライを選択",
+    "thread.replyingTo.check": "返信先: ",
+    "thread.replyingTo.check.reply": "リプライ #{id}",
+    "thread.replyingTo.mainOr": "または",
+    "thread.replyingTo.main": "メインスレッドに返信",
     "thread.report": "スレッドを報告",
     "thread.report.info": "このスレッドがコミュニティガイドラインに違反していると思われる場合は、報告してください。あなたの報告はモデレーターによってレビューされます。",
     "thread.report.success": "報告が正常に送信されました。尊重あるコミュニティの維持にご協力いただきありがとうございます。",
@@ -34,7 +40,8 @@
     "replies": "返信",
     "replies.last": "最後の返信",
     "reason": "理由",
-    "reply": "返信",
+    "reply": "リプライ",
+    "reply.post": "返信を投稿",
     "report": "報告",
     "cancel": "キャンセル",
     "second": "秒",
@@ -43,5 +50,6 @@
     "captcha.refresh": "更新",
     "captcha.error": "キャプチャの送信に失敗しました。もう一度お試しください。",
     "captcha.onCooldown": "キャプチャを送信する前に、クールダウン期間が終了するのをお待ちください。",
-    "captcha.success": "キャプチャが正常に送信されました。"
+    "captcha.success": "キャプチャが正常に送信されました。",
+    "backward": "戻る"
 }
