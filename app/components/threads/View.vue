@@ -480,7 +480,7 @@ useHead({
             </code>
             <span v-if="reply.replyTo" class="inline-flex items-center">
               <UIcon
-                name="i-lucide-reply"
+                name="i-lucide-chevrons-right"
                 class="w-3 h-3 text-midnight-400 dark:text-midnight-500 mx-0.5"
               />
               <code
