@@ -271,13 +271,32 @@ async function reportThread(threadID) {
 
 const replyFormSection = ref(null);
 
-const scrollToForm = (replyId) => {
-  form.value.replyTo = replyId;
+const scrollToForm = (replyID) => {
+  form.value.replyTo = replyID;
 
   nextTick(() => {
     replyFormSection.value?.scrollIntoView({ behavior: "smooth" });
     document.querySelector("textarea")?.focus();
   });
+};
+
+const highlightCard = (replyID) => {
+  const card = document.getElementById(replyID);
+  if (card) {
+    card.classList.add(
+      "ring-2",
+      "ring-brick-red-400",
+      "transition-all",
+      "duration-200"
+    );
+  }
+};
+
+const unhighlightCard = (replyID) => {
+  const card = document.getElementById(replyID);
+  if (card) {
+    card.classList.remove("ring-2", "ring-brick-red-400");
+  }
 };
 
 onMounted(() => {
@@ -336,10 +355,7 @@ useHead({
 
 <template>
   <div class="space-y-6 mt-6">
-    <UCard
-      :id="thread.id"
-      class="bg-midnight-50 dark:bg-midnight-900 transition-colors"
-    >
+    <UCard class="bg-midnight-50 dark:bg-midnight-900 transition-colors">
       <template #header>
         <div class="flex items-center gap-2">
           <Back />
@@ -351,6 +367,7 @@ useHead({
 
       <UCard
         class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-6"
+        :id="thread.id"
         :ui="{ body: { padding: 'p-4' } }"
       >
         <div class="flex justify-between items-start mb-2">
@@ -485,6 +502,8 @@ useHead({
               />
               <code
                 @click="navigateTo(`#${reply.replyTo}`)"
+                @mouseenter="highlightCard(reply.replyTo)"
+                @mouseleave="unhighlightCard(reply.replyTo)"
                 class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
               >
                 {{ reply.replyTo }}
@@ -587,7 +606,7 @@ useHead({
               v-model="form.replyTo"
               :items="
                 thread.replies.map((r) => ({
-                  label: `${$t('reply')} #${r.id} - ${formatDate(r.createdAt)}`,
+                  label: `${$t('reply')} #${r.id}`,
                   value: r.id,
                 }))
               "
