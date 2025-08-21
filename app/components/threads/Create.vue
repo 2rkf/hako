@@ -36,6 +36,7 @@ const newThread = ref({
   locale: "",
   file: undefined,
 });
+const languageSelect = computed(() => $t("thread.languageSelect"));
 
 const startCooldown = (type = "generate") => {
   const now = Date.now();
@@ -293,7 +294,7 @@ onMounted(() => {
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
           v-model="newThread.locale"
           :items="languages"
-          :placeholder="$t('thread.languageSelect')"
+          :placeholder="languageSelect"
         />
       </UFormField>
 
