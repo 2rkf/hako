@@ -13,7 +13,6 @@ const submission = ref({
   uuid: "",
 });
 
-const placeholder = computed(() => $t("thread.replyingTo.placeholder"));
 const cooldownGenerateUntil = useCookie("captcha_generate_until");
 const cooldownRefreshUntil = useCookie("captcha_refresh_until");
 
@@ -611,7 +610,7 @@ useHead({
                   value: r.id,
                 }))
               "
-              :placeholder="placeholder"
+              :placeholder="$t('thread.replyingTo.placeholder')"
               class="mb-2"
             />
 
