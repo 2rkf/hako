@@ -326,31 +326,6 @@ onMounted(() => {
     }, 1000);
   }
 });
-
-useHead({
-  title: `${props.thread.title} - Hako`,
-  meta: [
-    { property: "og:title", content: `${props.thread.title} - Hako` },
-    { property: "og:site_name", content: "2rkf" },
-    {
-      property: "og:description",
-      content: "A bulletin board website.",
-    },
-    { property: "og:image", content: props.thread.file?.url || "/hako.png" },
-    { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
-    { name: "theme-color", content: "#cc536e" },
-    { "http-equiv": "x-ua-compatible", content: "IE=edge" },
-    { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-    { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
-    { name: "theme-color", content: "#cc536e" },
-    { "http-equiv": "x-ua-compatible", content: "IE=edge" },
-    { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-  ],
-});
 </script>
 
 <template>
