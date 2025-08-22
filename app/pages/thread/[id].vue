@@ -8,38 +8,29 @@ const fetchThread = async () => {
   thread.value = await $fetch(`/api/threads/${threadID}`);
 };
 
-onMounted(() => {
-  fetchThread();
-});
-watch(reloadTrigger, () => {
-  fetchThread();
-});
+onMounted(fetchThread);
+watch(reloadTrigger, fetchThread);
 
-useHead({
-  title: `${thread.value.title} - Hako`,
+const head = computed(() => ({
+  title: thread.value ? `${thread.value.title} - Hako` : "Loading... - Hako",
   meta: [
-    { property: "og:title", content: `${thread.value.title} - Hako` },
+    { property: "og:title", content: thread.value ? `${thread.value.title} - Hako` : "Hako" },
     { property: "og:site_name", content: "2rkf" },
     {
       property: "og:description",
       content: "A bulletin board website.",
     },
-    { property: "og:image", content: thread.value.file?.url || "/hako.png" },
+    { property: "og:image", content: thread.value?.file?.url || "/hako.png" },
     { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
-    { name: "theme-color", content: "#cc536e" },
-    { "http-equiv": "x-ua-compatible", content: "IE=edge" },
-    { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-    { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
     { name: "theme-color", content: "#cc536e" },
     { "http-equiv": "x-ua-compatible", content: "IE=edge" },
     { name: "viewport", content: "width=device-width, initial-scale=1.0" },
   ],
-});
+}));
+
+useHead(head);
 </script>
+
 
 <template>
   <div

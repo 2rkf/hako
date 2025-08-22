@@ -10,8 +10,6 @@ useHead({
     },
     { property: "og:image", content: "/hako.png" },
     { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
     { name: "theme-color", content: "#cc536e" },
     { "http-equiv": "x-ua-compatible", content: "IE=edge" },
     { name: "viewport", content: "width=device-width, initial-scale=1.0" },
