@@ -280,24 +280,15 @@ const scrollToForm = (replyID) => {
   });
 };
 
-const highlightCard = (replyID) => {
-  const card = document.getElementById(replyID);
-  if (card) {
-    card.classList.add(
-      "ring-2",
-      "ring-brick-red-400",
-      "transition-all",
-      "duration-200"
-    );
-  }
-};
+const highlightedCards = ref(new Set());
 
-const unhighlightCard = (replyID) => {
-  const card = document.getElementById(replyID);
-  if (card) {
-    card.classList.remove("ring-2", "ring-brick-red-400");
-  }
-};
+function highlightCard(id) {
+  highlightedCards.value.add(id);
+}
+
+function unhighlightCard(id) {
+  highlightedCards.value.delete(id);
+}
 
 onMounted(() => {
   const now = Date.now();
@@ -341,7 +332,10 @@ onMounted(() => {
       </template>
 
       <UCard
-        class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-6"
+        class="hover:shadow-lg transition-color bg-midnight-50 dark:bg-midnight-900 mb-6 duration-300"
+        :class="[
+          highlightedCards.has(thread.id) ? 'ring-2 ring-brick-red-400' : '',
+        ]"
         :id="thread.id"
         :ui="{ body: { padding: 'p-4' } }"
       >
@@ -431,7 +425,10 @@ onMounted(() => {
           v-for="reply in thread.replies"
           :key="reply.id"
           :id="reply.id"
-          class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-4"
+          class="hover:shadow-lg transition-color bg-midnight-50 dark:bg-midnight-900 mb-6 duration-300"
+          :class="[
+            highlightedCards.has(reply.id) ? 'ring-2 ring-brick-red-400' : '',
+          ]"
           :ui="{ body: { padding: 'p-4' } }"
         >
           <div class="flex justify-between items-start mb-2">
@@ -573,20 +570,13 @@ onMounted(() => {
           </UFormField>
 
           <UFormField :label="$t('thread.replyingTo')" class="noselect">
-            <USelect
+            <UInput
               :ui="{
                 base: 'bg-white dark:bg-midnight-800',
-                content: 'min-w-fit',
               }"
               v-model="form.replyTo"
-              :items="
-                thread.replies.map((r) => ({
-                  label: `${$t('reply')} #${r.id}`,
-                  value: r.id,
-                }))
-              "
-              :placeholder="$t('thread.replyingTo.placeholder')"
-              class="mb-2"
+              readonly
+              class="mb-2 md:w-2/5 w-full"
             />
 
             <div
