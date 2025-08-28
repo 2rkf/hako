@@ -92,7 +92,7 @@ watch(reloadTrigger, () => {
         <div class="flex justify-between items-start mb-2">
           <div class="flex flex-warp gap-2">
             <UBadge
-              v-for="tag in thread.tags"
+              v-for="tag in [...thread.tags].sort((a, b) => a.localeCompare(b))"
               :key="tag"
               color="primary"
               variant="subtle"
