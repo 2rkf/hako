@@ -2,24 +2,34 @@
 const { reloadTrigger } = useThreadStore();
 const route = useRoute();
 const threadID = route.params.id;
-const thread = ref();
+
+const thread = ref(null);
+const loading = ref(true);
 
 const fetchThread = async () => {
-  thread.value = await $fetch(`/api/threads/${threadID}`);
+  loading.value = true;
+
+  try {
+    thread.value = await $fetch(`/api/threads/${threadID}`);
+  } catch (err) {
+    thread.value = null;
+  } finally {
+    loading.value = false;
+  }
 };
 
 onMounted(fetchThread);
 watch(reloadTrigger, fetchThread);
 
 const head = computed(() => ({
-  title: thread.value ? `${thread.value.title} - Hako` : "Loading... - Hako",
+  title: thread.value ? `${thread.value.title} - Hako` : "Hako",
   meta: [
-    { property: "og:title", content: thread.value ? `${thread.value.title} - Hako` : "Hako" },
-    { property: "og:site_name", content: "2rkf" },
     {
-      property: "og:description",
-      content: "A bulletin board website.",
+      property: "og:title",
+      content: thread.value ? `${thread.value.title} - Hako` : "Hako",
     },
+    { property: "og:site_name", content: "2rkf" },
+    { property: "og:description", content: "A bulletin board website." },
     { property: "og:image", content: thread.value?.file?.url || "/hako.png" },
     { property: "og:image:type", content: "image/png" },
     { name: "theme-color", content: "#cc536e" },
@@ -31,14 +41,14 @@ const head = computed(() => ({
 useHead(head);
 </script>
 
-
 <template>
   <div
     class="min-h-screen bg-midnight-100 dark:bg-midnight-950 transition-colors font-sans"
   >
     <div class="max-w-4xl mx-auto px-4 pt-16 pb-6">
       <ThreadsView v-if="thread" :thread="thread" />
-      <div v-if="!thread" class="space-y-4">
+
+      <div v-else-if="loading" class="space-y-4">
         <UCard
           class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900 mb-4"
           :ui="{ body: { padding: 'p-4' } }"
@@ -67,6 +77,10 @@ useHead(head);
             <USkeleton class="h-4 w-24 rounded" />
           </div>
         </UCard>
+      </div>
+
+      <div v-else-if="!thread">
+        <NotFound />
       </div>
     </div>
   </div>

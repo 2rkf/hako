@@ -51,5 +51,7 @@
   "captcha.error": "Captcha submission failed. Please try again.",
   "captcha.onCooldown": "Please wait for the cooldown period to end before submitting the captcha.",
   "captcha.success": "Captcha submitted successfully.",
-  "backward": "Back"
+  "backward": "Back",
+  "notfound.desc": "The page you are looking for does not exist or has been deleted.",
+  "notfound.home": "Back to Home"
 }
