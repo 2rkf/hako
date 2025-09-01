@@ -89,20 +89,24 @@ watch(reloadTrigger, () => {
         class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900"
         :ui="{ body: { padding: 'p-4' } }"
       >
-        <div class="flex justify-between items-start mb-2">
-          <div class="flex flex-warp gap-2">
-            <UBadge
-              v-for="tag in [...thread.tags].sort((a, b) => a.localeCompare(b))"
-              :key="tag"
-              color="primary"
-              variant="subtle"
-              class="noselect"
-            >
-              #{{ tag }}
-            </UBadge>
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex-1">
+            <div class="flex flex-wrap gap-2 justify-start sm:justify-start">
+              <UBadge
+                v-for="tag in [...thread.tags].sort((a, b) =>
+                  a.localeCompare(b)
+                )"
+                :key="tag"
+                color="primary"
+                variant="subtle"
+                class="noselect"
+              >
+                #{{ tag }}
+              </UBadge>
+            </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="ml-3 shrink-0">
             <UModal
               :title="$t('thread.report')"
               :description="$t('thread.report.info')"
@@ -115,8 +119,10 @@ watch(reloadTrigger, () => {
                 size="xs"
                 icon="i-lucide-flag"
                 :padded="false"
+                class="!m-0"
                 disabled
               />
+
               <template #body>
                 <div class="space-y-4 noselect">
                   <UFormField :label="$t('reason')" required>

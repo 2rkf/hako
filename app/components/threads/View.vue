@@ -339,20 +339,24 @@ onMounted(() => {
         :id="thread.id"
         :ui="{ body: { padding: 'p-4' } }"
       >
-        <div class="flex justify-between items-start mb-2">
-          <div class="flex flex-wrap gap-2">
-            <UBadge
-              v-for="tag in [...thread.tags].sort((a, b) => a.localeCompare(b))"
-              :key="tag"
-              color="primary"
-              variant="subtle"
-              class="noselect"
-            >
-              #{{ tag }}
-            </UBadge>
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex-1">
+            <div class="flex flex-wrap gap-2 justify-start">
+              <UBadge
+                v-for="tag in [...thread.tags].sort((a, b) =>
+                  a.localeCompare(b)
+                )"
+                :key="tag"
+                color="primary"
+                variant="subtle"
+                class="noselect"
+              >
+                #{{ tag }}
+              </UBadge>
+            </div>
           </div>
 
-          <div class="space-x-2">
+          <div class="ml-3 shrink-0 flex items-center gap-2">
             <UButton
               variant="ghost"
               color="neutral"
@@ -431,14 +435,16 @@ onMounted(() => {
           ]"
           :ui="{ body: { padding: 'p-4' } }"
         >
-          <div class="flex justify-between items-start mb-2">
-            <div class="flex flex-wrap gap-2">
-              <h3 class="text-xl font-semibold text-primary noselect">
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex-1">
+              <h3
+                class="text-lg sm:text-xl font-semibold text-primary noselect break-words"
+              >
                 {{ $t("reply") }} #{{ reply.id }}
               </h3>
             </div>
 
-            <div class="space-x-2">
+            <div class="ml-3 shrink-0 flex items-center gap-2">
               <UButton
                 variant="ghost"
                 color="neutral"
