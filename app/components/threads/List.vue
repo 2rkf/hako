@@ -58,6 +58,15 @@ onMounted(() => {
 watch(reloadTrigger, () => {
   fetchThreads();
 });
+
+const page = ref(1);
+const limit = 10;
+
+const paginatedThreads = computed(() => {
+  const start = (page.value - 1) * limit;
+  const end = start + limit;
+  return threads.value.slice(start, end);
+});
 </script>
 
 <template>
@@ -84,7 +93,7 @@ watch(reloadTrigger, () => {
 
     <div v-else class="space-y-4">
       <UCard
-        v-for="thread in threads.slice(0, 10)"
+        v-for="thread in paginatedThreads"
         :key="thread.id"
         class="hover:shadow-lg transition-shadow bg-midnight-50 dark:bg-midnight-900"
         :ui="{ body: { padding: 'p-4' } }"
@@ -232,6 +241,14 @@ watch(reloadTrigger, () => {
           </span>
         </div>
       </UCard>
+      <div class="flex justify-center pt-4">
+        <UPagination
+          :page="page"
+          @update:page="page = $event"
+          :items-per-page="limit"
+          :total="threads.length"
+        />
+      </div>
     </div>
   </UCard>
 </template>
