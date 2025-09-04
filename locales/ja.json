@@ -52,6 +52,7 @@
     "captcha.onCooldown": "キャプチャを送信する前に、クールダウン期間が終了するのをお待ちください。",
     "captcha.success": "キャプチャが正常に送信されました。",
     "backward": "戻る",
+    "notfound.title": "ページが見つかりません",
     "notfound.desc": "お探しのページは存在しないか、削除されました。",
     "notfound.home": "ホームに戻る"
 }
