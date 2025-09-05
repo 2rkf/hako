@@ -18,7 +18,7 @@ const { locale, locales, setLocale } = useI18n();
         <div
           class="flex flex-col items-center justify-center space-y-3 p-3 min-w-[160px]"
         >
-          <UColorModeSwitch />
+          <UColorModeSelect />
           <ULocaleSelect
             v-model="locale"
             :locales="locales"

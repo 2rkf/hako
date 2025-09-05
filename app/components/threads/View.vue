@@ -320,7 +320,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6 mt-6">
+  <div class="space-y-6 mt-10">
     <UCard class="bg-midnight-50 dark:bg-midnight-900 transition-colors">
       <template #header>
         <div class="flex items-center gap-2">
