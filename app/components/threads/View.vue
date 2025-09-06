@@ -165,10 +165,18 @@ function formatDate(date) {
 }
 
 async function submitReply() {
-  if (!form.value.content || !submission.value.captcha) {
+  if (!submission.value.captcha) {
     toast.add({
       color: "error",
       description: $t("error.emptyFields"),
+    });
+    return;
+  }
+
+  if (!form.value.content && !form.value.file) {
+    toast.add({
+      color: "error",
+      description: $t("error.contentOrFile"),
     });
     return;
   }
@@ -532,7 +540,7 @@ onMounted(() => {
         </h2>
 
         <form @submit.prevent="submitReply" class="space-y-4 px-4 pb-4">
-          <UFormField class="noselect" :label="$t('thread.content')" required>
+          <UFormField class="noselect" :label="$t('thread.content')">
             <UTextarea
               :ui="{ base: 'bg-white dark:bg-midnight-800' }"
               v-model="form.content"
@@ -581,6 +589,7 @@ onMounted(() => {
                 base: 'bg-white dark:bg-midnight-800',
               }"
               v-model="form.replyTo"
+              disabled
               readonly
               class="mb-2 md:w-2/5 w-full"
             />
@@ -599,19 +608,6 @@ onMounted(() => {
                 <span>{{
                   $t("thread.replyingTo.check.reply", { id: form.replyTo })
                 }}</span>
-              </NuxtLink>
-            </div>
-
-            <div class="text-sm mt-2">
-              <span class="text-midnight-500 dark:text-midnight-400">{{
-                $t("thread.replyingTo.mainOr")
-              }}</span>
-              <NuxtLink
-                :to="`/thread/${thread.id}`"
-                class="text-brick-red-400 hover:underline"
-                @click.prevent="form.replyTo = thread.id"
-              >
-                {{ $t("thread.replyingTo.main") }}
               </NuxtLink>
             </div>
           </UFormField>
