@@ -32,7 +32,7 @@
           />
         </NuxtLink>
         <NuxtLink
-          to="https://discord.com"
+          to="https://discord.gg/PdjXJmW7sN"
           target="_blank"
           aria-label="Discord"
         >
