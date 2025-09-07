@@ -7,7 +7,7 @@
         message: $t('notfound.desc'),
       }"
       :clear="{
-        label: $t('notfound.home'),
+        label: $t('back'),
       }"
     />
   </div>
