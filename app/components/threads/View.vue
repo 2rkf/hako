@@ -13,8 +13,8 @@ const submission = ref({
   uuid: "",
 });
 
-const cooldownGenerateUntil = useCookie("captcha_generate_until");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until");
+const cooldownGenerateUntil = useCookie("captcha_generate_until_report");
+const cooldownRefreshUntil = useCookie("captcha_refresh_until_report");
 
 const refreshCount = ref(0);
 const cooldown = ref(0);
@@ -80,6 +80,82 @@ const getCaptcha = async () => {
   }
 
   startCooldown(isGenerate ? "generate" : "refresh");
+};
+
+const captchaReply = ref();
+const submissionReply = ref({
+  captcha: "",
+  uuid: "",
+});
+
+const cooldownGenerateUntilReply = useCookie("captcha_generate_until_reply");
+const cooldownRefreshUntilReply = useCookie("captcha_refresh_until_reply");
+
+const refreshCountReply = ref(0);
+const cooldownReply = ref(0);
+let cooldownIntervalReply = null;
+
+const startCooldownReply = (type = "generate") => {
+  const now = Date.now();
+  const cooldownTime =
+    type === "generate" ? 60 : fibonacci(refreshCountReply.value) * 5;
+  const until = now + cooldownTime * 1000;
+
+  if (type === "generate") {
+    cooldownGenerateUntilReply.value = until;
+  } else {
+    cooldownRefreshUntilReply.value = until;
+    refreshCountReply.value++;
+  }
+
+  updateCooldownReply();
+  if (cooldownIntervalReply) clearInterval(cooldownIntervalReply);
+  cooldownIntervalReply = setInterval(updateCooldownReply, 1000);
+};
+
+const updateCooldownReply = () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntilReply.value
+    ? cooldownGenerateUntilReply.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntilReply.value
+    ? cooldownRefreshUntilReply.value - now
+    : 0;
+
+  const isGenerate = generateLeft > refreshLeft;
+  cooldownReply.value =
+    Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
+
+  if (cooldownReply.value <= 0) {
+    clearInterval(cooldownIntervalReply);
+  }
+};
+
+const getCaptchaReply = async () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntilReply.value
+    ? cooldownGenerateUntilReply.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntilReply.value
+    ? cooldownRefreshUntilReply.value - now
+    : 0;
+
+  const isGenerate = !captchaReply.value;
+  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
+
+  if (isGenerate) refreshCountReply.value = 0;
+  if (isOnCooldown) return;
+
+  const previousUUID = submissionReply.value.uuid;
+  captchaReply.value = await $fetch("/api/captcha/generate");
+  submissionReply.value.uuid = captchaReply.value.uuid;
+  submissionReply.value.captcha = "";
+
+  if (previousUUID && previousUUID !== submissionReply.value.uuid) {
+    captchaStorage.delete(previousUUID);
+  }
+
+  startCooldownReply(isGenerate ? "generate" : "refresh");
 };
 
 const form = ref({
@@ -165,7 +241,7 @@ function formatDate(date) {
 }
 
 async function submitReply() {
-  if (!submission.value.captcha) {
+  if (!submissionReply.value.captcha) {
     toast.add({
       color: "error",
       description: $t("error.emptyFields"),
@@ -177,6 +253,81 @@ async function submitReply() {
     toast.add({
       color: "error",
       description: $t("error.contentOrFile"),
+    });
+    return;
+  }
+
+  if (!captchaReply.value || !captchaReply.value.svg) {
+    toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+    return;
+  }
+
+  if (cooldownReply.value > 0) {
+    submissionReply.value.captcha = "";
+    toast.add({
+      color: "error",
+      description: $t("captcha.onCooldown"),
+    });
+    return;
+  }
+
+  const captchaResponse = await $fetch("/api/captcha/submit", {
+    method: "POST",
+    body: submissionReply.value,
+  });
+
+  if (captchaResponse.status !== 200) {
+    toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+    submissionReply.value.captcha = "";
+    return getCaptchaReply();
+  }
+
+  const payload = new FormData();
+  payload.append("author", form.value.author || "Anonymous");
+  payload.append("content", form.value.content);
+  payload.append("replyTo", form.value.replyTo || props.thread.id);
+
+  if (form.value.file) {
+    payload.append("file", form.value.file);
+  }
+
+  try {
+    await $fetch(`/api/threads/${props.thread.id}/reply`, {
+      method: "POST",
+      body: payload,
+    });
+
+    toast.add({
+      color: "success",
+      description: $t("reply.success"),
+    });
+
+    form.value = { author: "", content: "", file: null };
+    submissionReply.value.captcha = "";
+    state.file = undefined;
+    captchaReply.value = undefined;
+    triggerReload();
+  } catch (error) {
+    toast.add({
+      color: "error",
+      description: $t("reply.error"),
+    });
+  }
+}
+
+const reportThreadID = ref(null);
+
+async function reportThread() {
+  if (reportReason.value.length === 0) {
+    toast.add({
+      color: "error",
+      description: $t("error.emptyFields"),
     });
     return;
   }
@@ -212,67 +363,25 @@ async function submitReply() {
     return getCaptcha();
   }
 
-  const payload = new FormData();
-  payload.append("author", form.value.author || "Anonymous");
-  payload.append("content", form.value.content);
-  payload.append("replyTo", form.value.replyTo || props.thread.id);
-
-  if (form.value.file) {
-    payload.append("file", form.value.file);
-  }
-
   try {
-    await $fetch(`/api/threads/${props.thread.id}/reply`, {
+    await $fetch(`/api/threads/${reportThreadID.value}/report`, {
       method: "POST",
-      body: payload,
+      body: { reason: reportReason.value },
     });
 
     toast.add({
       color: "success",
-      description: "Reply posted successfully",
-    });
-
-    form.value = { author: "", content: "", file: null };
-    submission.value.captcha = "";
-    state.file = undefined;
-    captcha.value = undefined;
-    triggerReload();
-  } catch (error) {
-    console.error("Failed to post reply:", error);
-    toast.add({
-      color: "error",
-      description: "Failed to post reply",
-    });
-  }
-}
-
-async function reportThread(threadID) {
-  if (reportReason.value.length === 0) {
-    toast.add({
-      color: "error",
-      description: "Please provide a reason for reporting",
-    });
-    return;
-  }
-
-  try {
-    // await $fetch(`/api/threads/${threadID}/report`, {
-    //   method: "POST",
-    //   body: { reason: reportReason.value },
-    // });
-
-    toast.add({
-      color: "success",
-      description: "Thread reported successfully",
+      description: $t("thread.report.success"),
     });
 
     reportReason.value = "";
+    submission.value.captcha = "";
+    captcha.value = undefined;
     reportThreadOpen.value = false;
   } catch (error) {
-    console.error("Report submission failed:", error);
     toast.add({
       color: "error",
-      description: "Failed to report thread",
+      description: $t("thread.report.error"),
     });
   }
 }
@@ -323,6 +432,23 @@ onMounted(() => {
         element.scrollIntoView({ behavior: "smooth" });
       }
     }, 1000);
+  }
+});
+
+onMounted(() => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntilReply.value
+    ? cooldownGenerateUntilReply.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntilReply.value
+    ? cooldownRefreshUntilReply.value - now
+    : 0;
+
+  const remaining = Math.max(generateLeft, refreshLeft);
+  if (remaining > 0) {
+    cooldownReply.value = remaining / 1000;
+
+    cooldownInterval = setInterval(updateCooldownReply, 1000);
   }
 });
 </script>
@@ -380,8 +506,10 @@ onMounted(() => {
               size="xs"
               icon="i-lucide-flag"
               :padded="false"
-              disabled
-              @click="reportThreadOpen = true"
+              @click="
+                reportThreadID = thread.id;
+                reportThreadOpen = true;
+              "
             />
           </div>
         </div>
@@ -468,8 +596,10 @@ onMounted(() => {
                 size="xs"
                 icon="i-lucide-flag"
                 :padded="false"
-                disabled
-                @click="reportThreadOpen = true"
+                @click="
+                  reportThreadID = reply.id;
+                  reportThreadOpen = true;
+                "
               />
             </div>
           </div>
@@ -553,25 +683,29 @@ onMounted(() => {
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-4">
                 <span
-                  v-if="cooldown > 0"
+                  v-if="cooldownReply > 0"
                   class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
                 >
-                  {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                  {{ Math.ceil(cooldownReply) }}{{ $t("second") }}
                 </span>
 
                 <span
-                  v-else-if="captcha"
+                  v-else-if="captchaReply"
                   class="border-midnight-400 dark:border-midnight-600 border-2"
-                  v-html="captcha.svg"
+                  v-html="captchaReply.svg"
                 />
 
                 <UButton
-                  :disabled="cooldown > 0"
-                  @click="getCaptcha()"
+                  :disabled="cooldownReply > 0"
+                  @click="getCaptchaReply()"
                   variant="outline"
                   color="secondary"
                 >
-                  {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+                  {{
+                    captchaReply
+                      ? $t("captcha.refresh")
+                      : $t("captcha.generate")
+                  }}
                 </UButton>
               </div>
             </div>
@@ -579,7 +713,7 @@ onMounted(() => {
               :ui="{ base: 'bg-white dark:bg-midnight-800' }"
               maxlength="6"
               class="mt-2"
-              v-model="submission.captcha"
+              v-model="submissionReply.captcha"
             />
           </UFormField>
 
@@ -674,15 +808,39 @@ onMounted(() => {
             </UFormField>
           </UForm>
 
-          <div class="flex justify-end">
+          <div class="flex flex-col items-end gap-2 space-y-2">
             <UButton
               type="submit"
               variant="outline"
               color="primary"
               class="text-gray-700 dark:text-gray-300 px-4 py-2 rounded transition-colors noselect cursor-pointer"
             >
-              {{ $t("reply") }}
+              {{ $t("reply.post") }}
             </UButton>
+
+            <p
+              class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect"
+            >
+              <UIcon name="i-lucide-asterisk" class="w-3 h-3 text-red-500" />
+              <i18n-t keypath="read_rules" tag="span">
+                <template #rule_link>
+                  <NuxtLink
+                    to="/rules"
+                    class="text-brick-red-400 hover:underline"
+                  >
+                    {{ $t("rule") }}
+                  </NuxtLink>
+                </template>
+                <template #faq_link>
+                  <NuxtLink
+                    to="/faq"
+                    class="text-brick-red-400 hover:underline"
+                  >
+                    {{ $t("faq") }}
+                  </NuxtLink>
+                </template>
+              </i18n-t>
+            </p>
           </div>
         </form>
       </UCard>
@@ -707,12 +865,46 @@ onMounted(() => {
             />
           </UFormField>
 
+          <UFormField class="noselect" :label="$t('captcha')" required>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-4">
+                <span
+                  v-if="cooldown > 0"
+                  class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+                >
+                  {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                </span>
+
+                <span
+                  v-else-if="captcha"
+                  class="border-midnight-400 dark:border-midnight-600 border-2"
+                  v-html="captcha.svg"
+                />
+
+                <UButton
+                  :disabled="cooldown > 0"
+                  @click="getCaptcha()"
+                  variant="outline"
+                  color="secondary"
+                >
+                  {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+                </UButton>
+              </div>
+            </div>
+            <UInput
+              :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+              maxlength="6"
+              class="mt-2"
+              v-model="submission.captcha"
+            />
+          </UFormField>
+
           <div class="flex justify-end gap-2">
             <UButton
               :label="$t('report')"
               color="error"
               variant="solid"
-              @click="reportThread(thread.id)"
+              @click="reportThread"
             />
             <UButton
               :label="$t('cancel')"

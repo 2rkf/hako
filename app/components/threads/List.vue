@@ -1,17 +1,93 @@
 <script setup>
 import { parseBBCode } from "~~/server/utils/bbcode";
+import { captchaStorage } from "~~/server/utils/storage";
+import { fibonacci } from "~~/server/utils/fibonacci";
 
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
 const toast = useToast();
+const captcha = ref();
+const submission = ref({
+  captcha: "",
+  uuid: "",
+});
+
+const cooldownGenerateUntil = useCookie("captcha_generate_until_report");
+const cooldownRefreshUntil = useCookie("captcha_refresh_until_report");
+
+const refreshCount = ref(0);
+const cooldown = ref(0);
+let cooldownInterval = null;
+
+const startCooldown = (type = "generate") => {
+  const now = Date.now();
+  const cooldownTime =
+    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
+  const until = now + cooldownTime * 1000;
+
+  if (type === "generate") {
+    cooldownGenerateUntil.value = until;
+  } else {
+    cooldownRefreshUntil.value = until;
+    refreshCount.value++;
+  }
+
+  updateCooldown();
+  if (cooldownInterval) clearInterval(cooldownInterval);
+  cooldownInterval = setInterval(updateCooldown, 1000);
+};
+
+const updateCooldown = () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const isGenerate = generateLeft > refreshLeft;
+  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
+
+  if (cooldown.value <= 0) {
+    clearInterval(cooldownInterval);
+  }
+};
+
+const getCaptcha = async () => {
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const isGenerate = !captcha.value;
+  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
+
+  if (isGenerate) refreshCount.value = 0;
+  if (isOnCooldown) return;
+
+  const previousUUID = submission.value.uuid;
+  captcha.value = await $fetch("/api/captcha/generate");
+  submission.value.uuid = captcha.value.uuid;
+  submission.value.captcha = "";
+
+  if (previousUUID && previousUUID !== submission.value.uuid) {
+    captchaStorage.delete(previousUUID);
+  }
+
+  startCooldown(isGenerate ? "generate" : "refresh");
+};
 
 const reportReason = ref("");
 const reportThreadOpen = ref(false);
 const closeReportModal = () => {
   reportThreadOpen.value = !reportThreadOpen.value;
 };
-const reportThread = async (_threadID) => {
+const reportThread = async (threadID) => {
   if (reportReason.value.length === 0) {
     toast.add({
       color: "error",
@@ -20,16 +96,49 @@ const reportThread = async (_threadID) => {
     return;
   }
 
+  if (!captcha.value || !captcha.value.svg) {
+    toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+    return;
+  }
+
+  if (cooldown.value > 0) {
+    submission.value.captcha = "";
+    toast.add({
+      color: "error",
+      description: $t("captcha.onCooldown"),
+    });
+    return;
+  }
+
+  const captchaResponse = await $fetch("/api/captcha/submit", {
+    method: "POST",
+    body: submission.value,
+  });
+
+  if (captchaResponse.status !== 200) {
+    toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+    submission.value.captcha = "";
+    return getCaptcha();
+  }
+
   try {
-    // await $fetch(`/api/threads/${threadID}/report`, {
-    //   method: "POST",
-    //   body: { reason: reportReason.value },
-    // });
+    await $fetch(`/api/threads/${threadID}/report`, {
+      method: "POST",
+      body: { reason: reportReason.value },
+    });
     toast.add({
       color: "success",
       description: $t("thread.report.success"),
     });
     reportReason.value = "";
+    submission.value.captcha = "";
+    captcha.value = undefined;
   } catch (error) {
     console.error("Report submission failed:", error);
     toast.add({
@@ -53,6 +162,21 @@ const fetchThreads = async () => {
 
 onMounted(() => {
   fetchThreads();
+
+  const now = Date.now();
+  const generateLeft = cooldownGenerateUntil.value
+    ? cooldownGenerateUntil.value - now
+    : 0;
+  const refreshLeft = cooldownRefreshUntil.value
+    ? cooldownRefreshUntil.value - now
+    : 0;
+
+  const remaining = Math.max(generateLeft, refreshLeft);
+  if (remaining > 0) {
+    cooldown.value = remaining / 1000;
+
+    cooldownInterval = setInterval(updateCooldown, 1000);
+  }
 });
 
 watch(reloadTrigger, () => {
@@ -129,7 +253,6 @@ const paginatedThreads = computed(() => {
                 icon="i-lucide-flag"
                 :padded="false"
                 class="!m-0"
-                disabled
               />
 
               <template #body>
@@ -142,6 +265,44 @@ const paginatedThreads = computed(() => {
                       size="lg"
                       maxlength="100"
                       variant="soft"
+                    />
+                  </UFormField>
+
+                  <UFormField class="noselect" :label="$t('captcha')" required>
+                    <div class="flex flex-col gap-2">
+                      <div class="flex items-center gap-4">
+                        <span
+                          v-if="cooldown > 0"
+                          class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+                        >
+                          {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                        </span>
+
+                        <span
+                          v-else-if="captcha"
+                          class="border-midnight-400 dark:border-midnight-600 border-2"
+                          v-html="captcha.svg"
+                        />
+
+                        <UButton
+                          :disabled="cooldown > 0"
+                          @click="getCaptcha()"
+                          variant="outline"
+                          color="secondary"
+                        >
+                          {{
+                            captcha
+                              ? $t("captcha.refresh")
+                              : $t("captcha.generate")
+                          }}
+                        </UButton>
+                      </div>
+                    </div>
+                    <UInput
+                      :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+                      maxlength="6"
+                      class="mt-2"
+                      v-model="submission.captcha"
                     />
                   </UFormField>
 
@@ -225,7 +386,7 @@ const paginatedThreads = computed(() => {
           {{ $t("replies") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.replies?.length || 0 }}</span
+            >{{ thread.replies }}</span
           >
           | {{ $t("replies.last") }}:
           <span

@@ -21,8 +21,8 @@ const languages = ref([
   },
 ]);
 
-const cooldownGenerateUntil = useCookie("captcha_generate_until");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until");
+const cooldownGenerateUntil = useCookie("captcha_generate_until_create");
+const cooldownRefreshUntil = useCookie("captcha_refresh_until_create");
 
 const refreshCount = ref(0);
 const cooldown = ref(0);
@@ -40,9 +40,7 @@ const newThread = ref({
 const startCooldown = (type = "generate") => {
   const now = Date.now();
   const cooldownTime =
-    type === "generate"
-      ? 60
-      : fibonacci(refreshCount.value) * 5;
+    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
   const until = now + cooldownTime * 1000;
 
   if (type === "generate") {
@@ -283,7 +281,7 @@ onMounted(() => {
       <UFormField class="noselect" :label="$t('thread.tags')" required>
         <UInputTags
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-          :max-length=10
+          :max-length="10"
           v-model="newThread.tags"
         />
       </UFormField>
@@ -402,7 +400,7 @@ onMounted(() => {
         </UFormField>
       </UForm>
 
-      <div class="flex justify-end">
+      <div class="flex flex-col items-end gap-2 space-y-2">
         <UButton
           type="submit"
           variant="outline"
@@ -411,6 +409,22 @@ onMounted(() => {
         >
           {{ $t("thread.post") }}
         </UButton>
+
+        <p class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect">
+          <UIcon name="i-lucide-asterisk" class="w-3 h-3 text-red-500" />
+          <i18n-t keypath="read_rules" tag="span">
+            <template #rule_link>
+              <NuxtLink to="/rules" class="text-brick-red-400 hover:underline">
+                {{ $t("rule") }}
+              </NuxtLink>
+            </template>
+            <template #faq_link>
+              <NuxtLink to="/faq" class="text-brick-red-400 hover:underline">
+                {{ $t("faq") }}
+              </NuxtLink>
+            </template>
+          </i18n-t>
+        </p>
       </div>
     </form>
   </UCard>
