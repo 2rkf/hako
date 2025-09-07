@@ -10,7 +10,11 @@ export function parseBBCode(text: string): string {
             .replace(/\[quote\](.*?)\[\/quote\]/gis, (_, inner) => `<blockquote class="border-l-4 border-gray-400 pl-4 italic opacity-80">${parse(inner)}</blockquote>`)
             .replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (_, inner) => `<span class="bg-gray-800 text-gray-800 hover:text-white transition-colors px-1 rounded cursor-help">${parse(inner)}</span>`)
             .replace(/\[br\]/gi, "<br>")
-            .replace(/\n/g, "<br>");
+            .replace(/\n/g, "<br>")
+            .replace(
+                /(?<!["'>])(https?:\/\/[^\s<]+)/gi,
+                `<a href="$1" target="_blank" class="text-secondary hover:underline">$1</a>`
+            );
     }
 
     return parse(text);
