@@ -1,12 +1,14 @@
 <script setup>
+import { parseBBCode } from "~~/server/utils/bbcode";
+
 useHead({
-  title: "Hako",
+  title: "Community Guidelines - Hako",
   meta: [
-    { property: "og:title", content: "Hako" },
+    { property: "og:title", content: "Community Guidelines - Hako" },
     { property: "og:site_name", content: "2rkf" },
     {
       property: "og:description",
-      content: "A bulletin board website.",
+      content: "Read the rules and guidelines before posting on Hako.",
     },
     { property: "og:image", content: "/hako.png" },
     { property: "og:image:type", content: "image/png" },
@@ -30,48 +32,52 @@ useHead({
           alt="Hako Logo"
         />
         <h1
-          class="font-sans font-bold text-4xl text-brick-red-400 tracking-widest noselect"
+          class="font-sans font-bold text-2xl sm:text-4xl text-brick-red-400 tracking-wider noselect"
         >
-          {{ $t("title") }}
+          {{ $t("rule") }}
         </h1>
       </div>
 
-      <UCard class="mb-8 bg-midnight-50 dark:bg-midnight-900">
+      <UCard
+        id="posting-rules"
+        class="mb-8 bg-midnight-50 dark:bg-midnight-900"
+      >
         <template #header>
           <h2 class="text-xl font-semibold text-primary noselect">
-            {{ $t("whatis") }}
+            {{ $t("rule_title") }}
           </h2>
         </template>
 
         <div class="space-y-4 noselect">
           <p class="text-base text-gray-700 dark:text-gray-300">
-            {{ $t("description") }}
+            {{ $t("rule_intro") }}
           </p>
+
+          <ol
+            class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300"
+          >
+            <li v-html="parseBBCode($t('rule_1'))" />
+            <li v-html="parseBBCode($t('rule_2'))" />
+            <li v-html="parseBBCode($t('rule_3'))" />
+            <li v-html="parseBBCode($t('rule_4'))" />
+            <li v-html="parseBBCode($t('rule_5'))" />
+          </ol>
+
           <p class="text-base text-gray-700 dark:text-gray-300">
-            {{ $t("description2") }}
-          </p>
-          <p class="text-base text-gray-700 dark:text-gray-300">
-            <i18n-t keypath="description3" tag="span">
-              <template #rule_link>
-                <NuxtLink
-                  to="/rules"
-                  class="text-brick-red-400 hover:underline"
-                >
-                  {{ $t("rule") }}
-                </NuxtLink>
-              </template>
-              <template #faq_link>
-                <NuxtLink to="/faq" class="text-brick-red-400 hover:underline">
-                  {{ $t("faq") }}
-                </NuxtLink>
-              </template>
-            </i18n-t>
+            {{ $t("rule_outro") }}
           </p>
         </div>
       </UCard>
 
-      <ThreadsCreate />
-      <ThreadsList />
+      <div class="mt-10">
+        <NuxtLink
+          to="/"
+          class="flex items-center gap-2 text-brick-red-400 hover:underline"
+        >
+          <UIcon name="i-lucide-arrow-left" class="w-4 h-4" />
+          <span>{{ $t("back") }}</span>
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
