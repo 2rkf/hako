@@ -25,17 +25,19 @@ useHead({
   >
     <div class="max-w-4xl mx-auto px-4 pt-16 pb-6">
       <div class="flex items-center gap-3 mb-12 animate-slide-up">
-        <img
-          src="/assets/img/hako.png"
-          class="w-12 sm:w-14 h-auto noselect"
-          draggable="false"
-          alt="Hako Logo"
-        />
-        <h1
-          class="font-sans font-bold text-2xl sm:text-4xl text-brick-red-400 tracking-wider noselect"
-        >
-          {{ $t("rule") }}
-        </h1>
+        <NuxtLink to="/" class="flex items-center gap-3">
+          <img
+            src="/assets/img/hako.png"
+            class="w-12 sm:w-14 h-auto noselect"
+            draggable="false"
+            alt="Hako Logo"
+          />
+          <h1
+            class="font-sans font-bold text-4xl text-brick-red-400 tracking-wider noselect"
+          >
+            {{ $t("title") }}
+          </h1>
+        </NuxtLink>
       </div>
 
       <UCard
@@ -44,8 +46,11 @@ useHead({
       >
         <template #header>
           <h2 class="text-xl font-semibold text-primary noselect">
-            {{ $t("rule_title") }}
+            {{ $t("rule") }}
           </h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 noselect">
+            {{ $t("rule_description") }}
+          </p>
         </template>
 
         <div class="space-y-4 noselect">
@@ -72,7 +77,7 @@ useHead({
       <div class="mt-10">
         <NuxtLink
           to="/"
-          class="flex items-center gap-2 text-brick-red-400 hover:underline"
+          class="flex items-center gap-2 text-brick-red-400 hover:underline noselect"
         >
           <UIcon name="i-lucide-arrow-left" class="w-4 h-4" />
           <span>{{ $t("back") }}</span>
