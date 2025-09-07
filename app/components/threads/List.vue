@@ -240,89 +240,15 @@ const paginatedThreads = computed(() => {
           </div>
 
           <div class="ml-3 shrink-0">
-            <UModal
-              :title="$t('thread.report')"
-              :description="$t('thread.report.info')"
-              :close="false"
-              v-model:open="reportThreadOpen"
-            >
-              <UButton
-                variant="ghost"
-                color="error"
-                size="xs"
-                icon="i-lucide-flag"
-                :padded="false"
-                class="!m-0"
-              />
-
-              <template #body>
-                <div class="space-y-4 noselect">
-                  <UFormField :label="$t('reason')" required>
-                    <UInput
-                      :ui="{ base: 'bg-midnight-50 dark:bg-midnight-800' }"
-                      v-model="reportReason"
-                      class="w-full"
-                      size="lg"
-                      maxlength="100"
-                      variant="soft"
-                    />
-                  </UFormField>
-
-                  <UFormField class="noselect" :label="$t('captcha')" required>
-                    <div class="flex flex-col gap-2">
-                      <div class="flex items-center gap-4">
-                        <span
-                          v-if="cooldown > 0"
-                          class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
-                        >
-                          {{ Math.ceil(cooldown) }}{{ $t("second") }}
-                        </span>
-
-                        <span
-                          v-else-if="captcha"
-                          class="border-midnight-400 dark:border-midnight-600 border-2"
-                          v-html="captcha.svg"
-                        />
-
-                        <UButton
-                          :disabled="cooldown > 0"
-                          @click="getCaptcha()"
-                          variant="outline"
-                          color="secondary"
-                        >
-                          {{
-                            captcha
-                              ? $t("captcha.refresh")
-                              : $t("captcha.generate")
-                          }}
-                        </UButton>
-                      </div>
-                    </div>
-                    <UInput
-                      :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-                      maxlength="6"
-                      class="mt-2"
-                      v-model="submission.captcha"
-                    />
-                  </UFormField>
-
-                  <div class="flex justify-end gap-2">
-                    <UButton
-                      :label="$t('report')"
-                      color="error"
-                      variant="solid"
-                      @click="reportThread(thread.id)"
-                    />
-                    <UButton
-                      :label="$t('cancel')"
-                      color="neutral"
-                      variant="outline"
-                      @click="closeReportModal"
-                    />
-                  </div>
-                </div>
-              </template>
-            </UModal>
+            <UButton
+              variant="ghost"
+              color="error"
+              size="xs"
+              icon="i-lucide-flag"
+              :padded="false"
+              class="!m-0"
+              @click="reportThreadOpen = true"
+            />
           </div>
         </div>
 
@@ -412,4 +338,80 @@ const paginatedThreads = computed(() => {
       </div>
     </div>
   </UCard>
+
+  <UModal
+          :title="$t('thread.report')"
+          :description="$t('thread.report.info')"
+          :close="false"
+          v-model:open="reportThreadOpen"
+        >
+
+          <template #body>
+            <div class="space-y-4 noselect">
+              <UFormField :label="$t('reason')" required>
+                <UInput
+                  :ui="{ base: 'bg-midnight-50 dark:bg-midnight-800' }"
+                  v-model="reportReason"
+                  class="w-full"
+                  size="lg"
+                  maxlength="100"
+                  variant="soft"
+                />
+              </UFormField>
+
+              <UFormField class="noselect" :label="$t('captcha')" required>
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-4">
+                    <span
+                      v-if="cooldown > 0"
+                      class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+                    >
+                      {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                    </span>
+
+                    <span
+                      v-else-if="captcha"
+                      class="border-midnight-400 dark:border-midnight-600 border-2"
+                      v-html="captcha.svg"
+                    />
+
+                    <UButton
+                      :disabled="cooldown > 0"
+                      @click="getCaptcha()"
+                      variant="outline"
+                      color="secondary"
+                    >
+                      {{
+                        captcha
+                          ? $t("captcha.refresh")
+                          : $t("captcha.generate")
+                      }}
+                    </UButton>
+                  </div>
+                </div>
+                <UInput
+                  :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+                  maxlength="6"
+                  class="mt-2"
+                  v-model="submission.captcha"
+                />
+              </UFormField>
+
+              <div class="flex justify-end gap-2">
+                <UButton
+                  :label="$t('report')"
+                  color="error"
+                  variant="solid"
+                  @click="reportThread(thread.id)"
+                />
+                <UButton
+                  :label="$t('cancel')"
+                  color="neutral"
+                  variant="outline"
+                  @click="closeReportModal"
+                />
+              </div>
+            </div>
+          </template>
+        </UModal>
 </template>
