@@ -7,6 +7,15 @@ export function parseBBCode(text: string): string {
             .replace(/\[s\](.*?)\[\/s\]/gis, (_, inner) => `<s>${parse(inner)}</s>`)
             .replace(/\[code\](.*?)\[\/code\]/gis, (_, inner) => `<code class="bg-midnight-100 dark:bg-midnight-800 px-1 rounded">${inner}</code>`)
             .replace(/\[url=(.*?)\](.*?)\[\/url\]/gis, (_, href, inner) => `<a href="${href}" target="_blank" class="text-secondary hover:underline">${parse(inner)}</a>`)
+            .replace(
+                /\[url\](.*?)\[\/url\]/gis,
+                (_, href) =>
+                    `<a href="${href}" target="_blank" class="text-secondary hover:underline">${href}</a>`
+            )
+            .replace(
+                /(?<!["'>])(https?:\/\/[^\s<]+)/gi,
+                `<a href="$1" target="_blank" class="text-secondary hover:underline">$1</a>`
+            )
             .replace(/\[quote\](.*?)\[\/quote\]/gis, (_, inner) => `<blockquote class="border-l-4 border-gray-400 pl-4 italic opacity-80">${parse(inner)}</blockquote>`)
             .replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (_, inner) => `<span class="bg-gray-800 text-gray-800 hover:text-white transition-colors px-1 rounded cursor-help">${parse(inner)}</span>`)
             .replace(/\[list(?:=(1|a|A|i|I))?\](.*?)\[\/list\]/gis, (_, type, inner: string) => {
@@ -35,11 +44,7 @@ export function parseBBCode(text: string): string {
                 }
             })
             .replace(/\[br\]/gi, "<br>")
-            .replace(/\n/g, "<br>")
-            .replace(
-                /(?<!["'>])(https?:\/\/[^\s<]+)/gi,
-                `<a href="$1" target="_blank" class="text-secondary hover:underline">$1</a>`
-            );
+            .replace(/\n/g, "<br>");
     }
 
     return parse(text);
