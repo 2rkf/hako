@@ -499,13 +499,14 @@ onMounted(() => {
               :padded="false"
               class="cursor-pointer"
               @click="scrollToForm(thread.id)"
-            />
-            <UButton
+              />
+              <UButton
               variant="ghost"
               color="error"
               size="xs"
               icon="i-lucide-flag"
               :padded="false"
+              class="cursor-pointer"
               @click="
                 reportThreadID = thread.id;
                 reportThreadOpen = true;
@@ -589,13 +590,14 @@ onMounted(() => {
                 :padded="false"
                 class="cursor-pointer"
                 @click="scrollToForm(reply.id)"
-              />
-              <UButton
+                />
+                <UButton
                 variant="ghost"
                 color="error"
                 size="xs"
                 icon="i-lucide-flag"
                 :padded="false"
+                class="cursor-pointer"
                 @click="
                   reportThreadID = reply.id;
                   reportThreadOpen = true;

@@ -247,7 +247,7 @@ const paginatedThreads = computed(() => {
               size="xs"
               icon="i-lucide-flag"
               :padded="false"
-              class="!m-0"
+              class="!m-0 cursor-pointer"
               @click="
                 reportThreadID = thread.id;
                 reportThreadOpen = true;
