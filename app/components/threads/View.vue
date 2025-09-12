@@ -499,8 +499,8 @@ onMounted(() => {
               :padded="false"
               class="cursor-pointer"
               @click="scrollToForm(thread.id)"
-              />
-              <UButton
+            />
+            <UButton
               variant="ghost"
               color="error"
               size="xs"
@@ -590,8 +590,8 @@ onMounted(() => {
                 :padded="false"
                 class="cursor-pointer"
                 @click="scrollToForm(reply.id)"
-                />
-                <UButton
+              />
+              <UButton
                 variant="ghost"
                 color="error"
                 size="xs"
@@ -609,7 +609,10 @@ onMounted(() => {
           <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
             <span class="noselect">ID: </span>
             <code
-              class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+              @click="navigateTo(`#${reply.id}`)"
+              @mouseenter="highlightCard(reply.id)"
+              @mouseleave="unhighlightCard(reply.id)"
+              class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
             >
               {{ reply.id }}
             </code>
