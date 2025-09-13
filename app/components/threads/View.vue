@@ -1,162 +1,29 @@
 <script setup>
 import { parseBBCode } from "~~/server/utils/bbcode";
-import { fibonacci } from "~~/server/utils/fibonacci";
-import { captchaStorage } from "~~/server/utils/storage";
+import { useCaptcha } from "~/composables/useCaptcha";
 import * as z from "zod";
 
 const { triggerReload } = useThreadStore();
 const props = defineProps(["thread"]);
 const toast = useToast();
-const captcha = ref();
-const submission = ref({
-  captcha: "",
-  uuid: "",
-});
 
-const cooldownGenerateUntil = useCookie("captcha_generate_until_report");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until_report");
+const {
+  captcha: captchaReport,
+  submission: submissionReport,
+  cooldown: cooldownReport,
+  getCaptcha: getCaptchaReport,
+  resetCaptcha: resetCaptchaReport,
+  validateCaptcha: validateCaptchaReport,
+} = useCaptcha("report");
 
-const refreshCount = ref(0);
-const cooldown = ref(0);
-let cooldownInterval = null;
-
-const startCooldown = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntil.value = until;
-  } else {
-    cooldownRefreshUntil.value = until;
-    refreshCount.value++;
-  }
-
-  updateCooldown();
-  if (cooldownInterval) clearInterval(cooldownInterval);
-  cooldownInterval = setInterval(updateCooldown, 1000);
-};
-
-const updateCooldown = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldown.value <= 0) {
-    clearInterval(cooldownInterval);
-  }
-};
-
-const getCaptcha = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = !captcha.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCount.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submission.value.uuid;
-  captcha.value = await $fetch("/api/captcha/generate");
-  submission.value.uuid = captcha.value.uuid;
-  submission.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submission.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldown(isGenerate ? "generate" : "refresh");
-};
-
-const captchaReply = ref();
-const submissionReply = ref({
-  captcha: "",
-  uuid: "",
-});
-
-const cooldownGenerateUntilReply = useCookie("captcha_generate_until_reply");
-const cooldownRefreshUntilReply = useCookie("captcha_refresh_until_reply");
-
-const refreshCountReply = ref(0);
-const cooldownReply = ref(0);
-let cooldownIntervalReply = null;
-
-const startCooldownReply = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate" ? 60 : fibonacci(refreshCountReply.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntilReply.value = until;
-  } else {
-    cooldownRefreshUntilReply.value = until;
-    refreshCountReply.value++;
-  }
-
-  updateCooldownReply();
-  if (cooldownIntervalReply) clearInterval(cooldownIntervalReply);
-  cooldownIntervalReply = setInterval(updateCooldownReply, 1000);
-};
-
-const updateCooldownReply = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntilReply.value
-    ? cooldownGenerateUntilReply.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntilReply.value
-    ? cooldownRefreshUntilReply.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldownReply.value =
-    Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldownReply.value <= 0) {
-    clearInterval(cooldownIntervalReply);
-  }
-};
-
-const getCaptchaReply = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntilReply.value
-    ? cooldownGenerateUntilReply.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntilReply.value
-    ? cooldownRefreshUntilReply.value - now
-    : 0;
-
-  const isGenerate = !captchaReply.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCountReply.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submissionReply.value.uuid;
-  captchaReply.value = await $fetch("/api/captcha/generate");
-  submissionReply.value.uuid = captchaReply.value.uuid;
-  submissionReply.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submissionReply.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldownReply(isGenerate ? "generate" : "refresh");
-};
+const {
+  captcha: captchaReply,
+  submission: submissionReply,
+  cooldown: cooldownReply,
+  resetCaptcha: resetCaptchaReply,
+  getCaptcha: getCaptchaReply,
+  validateCaptcha: validateCaptchaReply,
+} = useCaptcha("reply");
 
 const form = ref({
   author: "",
@@ -242,50 +109,30 @@ function formatDate(date) {
 
 async function submitReply() {
   if (!submissionReply.value.captcha) {
-    toast.add({
-      color: "error",
-      description: $t("error.emptyFields"),
-    });
+    toast.add({ color: "error", description: $t("error.emptyFields") });
     return;
   }
 
   if (!form.value.content && !form.value.file) {
-    toast.add({
-      color: "error",
-      description: $t("error.contentOrFile"),
-    });
+    toast.add({ color: "error", description: $t("error.contentOrFile") });
     return;
   }
 
   if (!captchaReply.value || !captchaReply.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
+    toast.add({ color: "error", description: $t("captcha.error") });
     return;
   }
 
   if (cooldownReply.value > 0) {
     submissionReply.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
+    toast.add({ color: "error", description: $t("captcha.onCooldown") });
     return;
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submissionReply.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submissionReply.value.captcha = "";
-    return getCaptchaReply();
+  const valid = await validateCaptchaReply();
+  if (!valid) {
+    toast.add({ color: "error", description: $t("captcha.error") });
+    return;
   }
 
   const payload = new FormData();
@@ -303,21 +150,13 @@ async function submitReply() {
       body: payload,
     });
 
-    toast.add({
-      color: "success",
-      description: $t("reply.success"),
-    });
-
+    toast.add({ color: "success", description: $t("reply.success") });
     form.value = { author: "", content: "", file: null };
-    submissionReply.value.captcha = "";
     state.file = undefined;
-    captchaReply.value = undefined;
+    resetCaptchaReply();
     triggerReload();
   } catch (error) {
-    toast.add({
-      color: "error",
-      description: $t("reply.error"),
-    });
+    toast.add({ color: "error", description: $t("reply.error") });
   }
 }
 
@@ -325,42 +164,25 @@ const reportThreadID = ref(null);
 
 async function reportThread() {
   if (reportReason.value.length === 0) {
-    toast.add({
-      color: "error",
-      description: $t("error.emptyFields"),
-    });
+    toast.add({ color: "error", description: $t("error.emptyFields") });
     return;
   }
 
-  if (!captcha.value || !captcha.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
+  if (!captchaReport.value || !captchaReport.value.svg) {
+    toast.add({ color: "error", description: $t("captcha.error") });
     return;
   }
 
-  if (cooldown.value > 0) {
-    submission.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
+  if (cooldownReport.value > 0) {
+    submissionReport.value.captcha = "";
+    toast.add({ color: "error", description: $t("captcha.onCooldown") });
     return;
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submission.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submission.value.captcha = "";
-    return getCaptcha();
+  const valid = await validateCaptchaReport();
+  if (!valid) {
+    toast.add({ color: "error", description: $t("captcha.error") });
+    return;
   }
 
   try {
@@ -369,20 +191,13 @@ async function reportThread() {
       body: { reason: reportReason.value },
     });
 
-    toast.add({
-      color: "success",
-      description: $t("thread.report.success"),
-    });
+    toast.add({ color: "success", description: $t("thread.report.success") });
 
     reportReason.value = "";
-    submission.value.captcha = "";
-    captcha.value = undefined;
+    resetCaptchaReport();
     reportThreadOpen.value = false;
   } catch (error) {
-    toast.add({
-      color: "error",
-      description: $t("thread.report.error"),
-    });
+    toast.add({ color: "error", description: $t("thread.report.error") });
   }
 }
 
@@ -402,27 +217,11 @@ const highlightedCards = ref(new Set());
 function highlightCard(id) {
   highlightedCards.value.add(id);
 }
-
 function unhighlightCard(id) {
   highlightedCards.value.delete(id);
 }
 
 onMounted(() => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldown.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldown, 1000);
-  }
-
   if (window.location.hash) {
     setTimeout(() => {
       const element = document.getElementById(
@@ -432,23 +231,6 @@ onMounted(() => {
         element.scrollIntoView({ behavior: "smooth" });
       }
     }, 1000);
-  }
-});
-
-onMounted(() => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntilReply.value
-    ? cooldownGenerateUntilReply.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntilReply.value
-    ? cooldownRefreshUntilReply.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldownReply.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldownReply, 1000);
   }
 });
 </script>
@@ -874,25 +656,25 @@ onMounted(() => {
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-4">
                 <span
-                  v-if="cooldown > 0"
+                  v-if="cooldownReport > 0"
                   class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
                 >
-                  {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                  {{ Math.ceil(cooldownReport) }}{{ $t("second") }}
                 </span>
 
                 <span
-                  v-else-if="captcha"
+                  v-else-if="captchaReport"
                   class="border-midnight-400 dark:border-midnight-600 border-2"
-                  v-html="captcha.svg"
+                  v-html="captchaReport.svg"
                 />
 
                 <UButton
-                  :disabled="cooldown > 0"
-                  @click="getCaptcha()"
+                  :disabled="cooldownReport > 0"
+                  @click="getCaptchaReport()"
                   variant="outline"
                   color="secondary"
                 >
-                  {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+                  {{ captchaReport ? $t("captcha.refresh") : $t("captcha.generate") }}
                 </UButton>
               </div>
             </div>
@@ -900,7 +682,7 @@ onMounted(() => {
               :ui="{ base: 'bg-white dark:bg-midnight-800' }"
               maxlength="6"
               class="mt-2"
-              v-model="submission.captcha"
+              v-model="submissionReport.captcha"
             />
           </UFormField>
 

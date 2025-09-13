@@ -1,86 +1,20 @@
 <script setup>
+import { useCaptcha } from "~/composables/useCaptcha";
 import { parseBBCode } from "~~/server/utils/bbcode";
-import { captchaStorage } from "~~/server/utils/storage";
-import { fibonacci } from "~~/server/utils/fibonacci";
 
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
 const toast = useToast();
-const captcha = ref();
-const submission = ref({
-  captcha: "",
-  uuid: "",
-});
 
-const cooldownGenerateUntil = useCookie("captcha_generate_until_report");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until_report");
-
-const refreshCount = ref(0);
-const cooldown = ref(0);
-let cooldownInterval = null;
-
-const startCooldown = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntil.value = until;
-  } else {
-    cooldownRefreshUntil.value = until;
-    refreshCount.value++;
-  }
-
-  updateCooldown();
-  if (cooldownInterval) clearInterval(cooldownInterval);
-  cooldownInterval = setInterval(updateCooldown, 1000);
-};
-
-const updateCooldown = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldown.value <= 0) {
-    clearInterval(cooldownInterval);
-  }
-};
-
-const getCaptcha = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = !captcha.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCount.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submission.value.uuid;
-  captcha.value = await $fetch("/api/captcha/generate");
-  submission.value.uuid = captcha.value.uuid;
-  submission.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submission.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldown(isGenerate ? "generate" : "refresh");
-};
+const {
+  captcha,
+  submission,
+  cooldown,
+  getCaptcha,
+  validateCaptcha,
+  resetCaptcha,
+} = useCaptcha("report");
 
 const reportReason = ref("");
 const reportThreadOpen = ref(false);
@@ -98,34 +32,17 @@ const reportThread = async () => {
   }
 
   if (!captcha.value || !captcha.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   if (cooldown.value > 0) {
     submission.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.onCooldown") });
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submission.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submission.value.captcha = "";
-    return getCaptcha();
+  const valid = await validateCaptcha();
+  if (!valid) {
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   try {
@@ -138,8 +55,7 @@ const reportThread = async () => {
       description: $t("thread.report.success"),
     });
     reportReason.value = "";
-    submission.value.captcha = "";
-    captcha.value = undefined;
+    resetCaptcha();
   } catch (error) {
     console.error("Report submission failed:", error);
     toast.add({
@@ -163,21 +79,6 @@ const fetchThreads = async () => {
 
 onMounted(() => {
   fetchThreads();
-
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldown.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldown, 1000);
-  }
 });
 
 watch(reloadTrigger, () => {

@@ -1,32 +1,17 @@
 <script setup>
 import * as z from "zod";
-import { captchaStorage } from "~~/server/utils/storage";
-import { fibonacci } from "~~/server/utils/fibonacci";
+import { useCaptcha } from "~/composables/useCaptcha";
 
 const { triggerReload } = useThreadStore();
 const toast = useToast();
-const captcha = ref();
-const submission = ref({
-  captcha: "",
-  uuid: "",
-});
-const languages = ref([
-  {
-    label: "English",
-    value: "en",
-  },
-  {
-    label: "日本語",
-    value: "ja",
-  },
-]);
-
-const cooldownGenerateUntil = useCookie("captcha_generate_until_create");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until_create");
-
-const refreshCount = ref(0);
-const cooldown = ref(0);
-let cooldownInterval = null;
+const {
+  captcha,
+  submission,
+  cooldown,
+  getCaptcha,
+  validateCaptcha,
+  resetCaptcha,
+} = useCaptcha("create");
 
 const newThread = ref({
   title: "",
@@ -37,67 +22,16 @@ const newThread = ref({
   file: undefined,
 });
 
-const startCooldown = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntil.value = until;
-  } else {
-    cooldownRefreshUntil.value = until;
-    refreshCount.value++;
-  }
-
-  updateCooldown();
-  if (cooldownInterval) clearInterval(cooldownInterval);
-  cooldownInterval = setInterval(updateCooldown, 1000);
-};
-
-const updateCooldown = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldown.value <= 0) {
-    clearInterval(cooldownInterval);
-  }
-};
-
-const getCaptcha = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = !captcha.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCount.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submission.value.uuid;
-  captcha.value = await $fetch("/api/captcha/generate");
-  submission.value.uuid = captcha.value.uuid;
-  submission.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submission.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldown(isGenerate ? "generate" : "refresh");
-};
+const languages = ref([
+  {
+    label: "English",
+    value: "en",
+  },
+  {
+    label: "日本語",
+    value: "ja",
+  },
+]);
 
 const createThread = async () => {
   if (
@@ -115,34 +49,17 @@ const createThread = async () => {
   }
 
   if (!captcha.value || !captcha.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   if (cooldown.value > 0) {
     submission.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.onCooldown") });
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submission.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submission.value.captcha = "";
-    return getCaptcha();
+  const valid = await validateCaptcha();
+  if (!valid) {
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   const formData = new FormData();
@@ -168,8 +85,7 @@ const createThread = async () => {
     file: undefined,
   };
   state.file = undefined;
-  submission.value.captcha = "";
-  captcha.value = undefined;
+  resetCaptcha();
 
   await $fetch("/api/threads", {
     method: "POST",
@@ -241,23 +157,6 @@ const state = reactive({
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
 }
-
-onMounted(() => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldown.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldown, 1000);
-  }
-});
 </script>
 
 <template>

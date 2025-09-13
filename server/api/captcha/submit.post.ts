@@ -1,9 +1,9 @@
-import { type Submission } from "~/types/captcha";
+import { type CaptchaSubmission } from "~/types/captcha";
 import { type Response } from "~/types/response";
 import { captchaStorage } from "~~/server/utils/storage";
 
 export default defineEventHandler(async (event) => {
-    const body = await readBody<Submission>(event);
+    const body = await readBody<CaptchaSubmission>(event);
     const entry = await captchaStorage.get(body.uuid);
 
     if (!entry || entry !== body.captcha) {
