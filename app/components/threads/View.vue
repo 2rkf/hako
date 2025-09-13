@@ -233,6 +233,18 @@ onMounted(() => {
     }, 1000);
   }
 });
+
+const imageZoomOpen = ref(false);
+const imageZoomUrl = ref("");
+
+const openImageZoom = (url) => {
+  imageZoomUrl.value = url;
+  imageZoomOpen.value = true;
+};
+
+const closeImageZoom = () => {
+  imageZoomOpen.value = false;
+};
 </script>
 
 <template>
@@ -316,7 +328,8 @@ onMounted(() => {
           <img
             :src="thread.file.url"
             :alt="thread.file.name"
-            class="rounded-md max-h-96 object-contain"
+            class="rounded-md max-h-96 object-contain noselect cursor-pointer hover:opacity-80 transition-opacity"
+            @click="openImageZoom(thread.file.url)"
           />
         </div>
 
@@ -424,7 +437,8 @@ onMounted(() => {
             <img
               :src="reply.file.url"
               :alt="reply.file.name"
-              class="rounded-md max-h-64 object-contain"
+              class="rounded-md max-h-64 object-contain noselect cursor-pointer hover:opacity-80 transition-opacity"
+              @click="openImageZoom(reply.file.url)"
             />
           </div>
 
@@ -700,6 +714,18 @@ onMounted(() => {
               @click="reportThreadOpen = false"
             />
           </div>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="imageZoomOpen" :close="true">
+      <template #body>
+        <div class="flex flex-col items-center space-y-4">
+          <img
+            :src="imageZoomUrl"
+            :alt="$t('thread.image')"
+            class="max-w-full max-h-[80vh] object-contain rounded-md"
+          />
         </div>
       </template>
     </UModal>

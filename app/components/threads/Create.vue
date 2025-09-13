@@ -180,7 +180,7 @@ function createObjectUrl(file) {
       <UFormField class="noselect" :label="$t('thread.tags')" required>
         <UInputTags
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-          :max-length="10"
+          :max="10"
           v-model="newThread.tags"
         />
       </UFormField>

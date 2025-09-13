@@ -7,21 +7,17 @@ const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
 const toast = useToast();
 
-const {
-  captcha,
-  submission,
-  cooldown,
-  getCaptcha,
-  validateCaptcha,
-  resetCaptcha,
-} = useCaptcha("report");
+const { captcha, submission, cooldown, getCaptcha, validateCaptcha, resetCaptcha, } = useCaptcha("report");
 
 const reportReason = ref("");
 const reportThreadOpen = ref(false);
+
 const closeReportModal = () => {
   reportThreadOpen.value = !reportThreadOpen.value;
 };
+
 const reportThreadID = ref(null);
+
 const reportThread = async () => {
   if (reportReason.value.length === 0) {
     toast.add({
@@ -32,28 +28,41 @@ const reportThread = async () => {
   }
 
   if (!captcha.value || !captcha.value.svg) {
-    return toast.add({ color: "error", description: $t("captcha.error") });
+    return toast.add({
+      color: "error",
+      description: $t("captcha.error")
+    });
   }
 
   if (cooldown.value > 0) {
     submission.value.captcha = "";
-    return toast.add({ color: "error", description: $t("captcha.onCooldown") });
+    return toast.add({
+      color: "error",
+      description: $t("captcha.onCooldown")
+    });
   }
 
   const valid = await validateCaptcha();
   if (!valid) {
-    return toast.add({ color: "error", description: $t("captcha.error") });
+    return toast.add({
+      color: "error",
+      description: $t("captcha.error")
+    });
   }
 
   try {
     await $fetch(`/api/threads/${reportThreadID.value}/report`, {
       method: "POST",
-      body: { reason: reportReason.value },
+      body: {
+        reason: reportReason.value,
+      },
     });
+
     toast.add({
       color: "success",
       description: $t("thread.report.success"),
     });
+
     reportReason.value = "";
     resetCaptcha();
   } catch (error) {
@@ -93,6 +102,18 @@ const paginatedThreads = computed(() => {
   const end = start + limit;
   return threads.value.slice(start, end);
 });
+
+const imageZoomOpen = ref(false);
+const imageZoomUrl = ref("");
+
+const openImageZoom = (url) => {
+  imageZoomUrl.value = url;
+  imageZoomOpen.value = true;
+};
+
+const closeImageZoom = () => {
+  imageZoomOpen.value = false;
+};
 </script>
 
 <template>
@@ -128,9 +149,7 @@ const paginatedThreads = computed(() => {
           <div class="flex-1">
             <div class="flex flex-wrap gap-2 justify-start sm:justify-start">
               <UBadge
-                v-for="tag in [...thread.tags].sort((a, b) =>
-                  a.localeCompare(b)
-                )"
+                v-for="tag in [...thread.tags].sort((a, b) => a.localeCompare(b))"
                 :key="tag"
                 color="primary"
                 variant="subtle"
@@ -140,7 +159,6 @@ const paginatedThreads = computed(() => {
               </UBadge>
             </div>
           </div>
-
           <div class="ml-3 shrink-0">
             <UButton
               variant="ghost"
@@ -167,15 +185,17 @@ const paginatedThreads = computed(() => {
           <span class="noselect">ID: </span>
           <code
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.id }}</code
           >
+            {{ thread.id }}
+          </code>
         </p>
 
         <div v-if="thread.file" class="my-2">
           <img
             :src="thread.file.url"
             alt="Thread Image"
-            class="rounded-md max-h-64 object-cover noselect"
+            class="rounded-md max-h-64 object-cover noselect cursor-pointer hover:opacity-80 transition-opacity"
+            @click="openImageZoom(thread.file.url)"
           />
         </div>
 
@@ -191,13 +211,14 @@ const paginatedThreads = computed(() => {
         <div
           class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-4 noselect"
         >
-          <span
-            >{{ $t("by") }}
+          <span>
+            {{ $t("by") }}
             <span
               class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-              >{{ thread.author }}</span
-            ></span
-          >
+            >
+              {{ thread.author }}
+            </span>
+          </span>
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
           >
@@ -211,14 +232,13 @@ const paginatedThreads = computed(() => {
           </span>
         </div>
 
-        <div
-          class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect"
-        >
+        <div class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect">
           {{ $t("replies") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.replies }}</span
           >
+            {{ thread.replies }}
+          </span>
           | {{ $t("replies.last") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
@@ -233,6 +253,7 @@ const paginatedThreads = computed(() => {
           </span>
         </div>
       </UCard>
+
       <div class="flex justify-center pt-4">
         <UPagination
           :page="page"
@@ -272,13 +293,11 @@ const paginatedThreads = computed(() => {
               >
                 {{ Math.ceil(cooldown) }}{{ $t("second") }}
               </span>
-
               <span
                 v-else-if="captcha"
                 class="border-midnight-400 dark:border-midnight-600 border-2"
                 v-html="captcha.svg"
               />
-
               <UButton
                 :disabled="cooldown > 0"
                 @click="getCaptcha()"
@@ -302,7 +321,7 @@ const paginatedThreads = computed(() => {
             :label="$t('report')"
             color="error"
             variant="solid"
-            @click="reportThread(reportThreadID)"
+            @click="reportThread()"
           />
           <UButton
             :label="$t('cancel')"
@@ -311,6 +330,18 @@ const paginatedThreads = computed(() => {
             @click="closeReportModal"
           />
         </div>
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="imageZoomOpen" :close="true">
+    <template #body>
+      <div class="flex flex-col items-center space-y-4">
+        <img
+          :src="imageZoomUrl"
+          :alt="$t('thread.image')"
+          class="max-w-full max-h-[80vh] object-contain rounded-md"
+        />
       </div>
     </template>
   </UModal>
