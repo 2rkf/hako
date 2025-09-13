@@ -118,14 +118,15 @@ const formatBytes = (bytes, decimals = 2) => {
 
 const schema = z.object({
   file: z
-    .refine((file) => file.size <= MAX_FILE_SIZE, {
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
       message: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
     })
-    .refine((file) => ACCEPTED_IMAGE_TYPES.includes(file.type), {
+    .refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), {
       message: $t("thread.file.error.type"),
     })
     .refine(
       (file) =>
+        !file ||
         new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -152,7 +153,35 @@ const schema = z.object({
 
 const state = reactive({
   file: undefined,
+  errors: {},
 });
+
+const validateFile = async () => {
+  const result = await schema.safeParseAsync({ file: state.file });
+  if (!result.success) {
+    state.errors = z.treeifyError(result.error);
+    toast.add({
+      color: "error",
+      description: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
+    });
+    return false;
+  }
+  state.errors = {};
+  return true;
+};
+
+const handleFileChange = async (file) => {
+  if (!file) {
+    newThread.value.file = undefined;
+    return;
+  }
+  if (!(await validateFile())) {
+    state.file = undefined;
+    newThread.value.file = undefined;
+    return;
+  }
+  newThread.value.file = file;
+};
 
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
@@ -251,16 +280,13 @@ function createObjectUrl(file) {
           name="file"
           :label="$t('thread.file')"
           :description="$t('thread.file.description')"
+          :error="state.errors.file?.[0]"
         >
           <UFileUpload
             v-slot="{ open, removeFile }"
             v-model="state.file"
             accept="image/*"
-            @update:modelValue="
-              (file) => {
-                newThread.file = file;
-              }
-            "
+            @update:modelValue="handleFileChange"
           >
             <div class="flex flex-wrap items-center gap-3">
               <UAvatar
@@ -309,7 +335,9 @@ function createObjectUrl(file) {
           {{ $t("thread.post") }}
         </UButton>
 
-        <p class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect">
+        <p
+          class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect"
+        >
           <UIcon name="i-lucide-asterisk" class="w-3 h-3 text-red-500" />
           <i18n-t keypath="read_rules" tag="span">
             <template #rule_link>

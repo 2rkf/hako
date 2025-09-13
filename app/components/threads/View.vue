@@ -34,6 +34,7 @@ const form = ref({
 
 const state = reactive({
   file: undefined,
+  errors: {},
 });
 
 const reportReason = ref("");
@@ -49,13 +50,24 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ];
 
+const formatBytes = (bytes, decimals = 2) => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return (
+    Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  );
+};
+
 const schema = z.object({
   file: z
     .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
-      message: `File size must be less than ${formatBytes(MAX_FILE_SIZE)}`,
+      message: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
     })
     .refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), {
-      message: "Only .jpg, .jpeg, .png and .webp formats are supported",
+      message: $t("thread.file.error.type"),
     })
     .refine(
       (file) =>
@@ -77,21 +89,39 @@ const schema = z.object({
           reader.readAsDataURL(file);
         }),
       {
-        message: `Image dimensions must be between ${MIN_DIMENSIONS.width}x${MIN_DIMENSIONS.height} and ${MAX_DIMENSIONS.width}x${MAX_DIMENSIONS.height} pixels`,
+        message: $t("thread.file.error.pixel", {
+          limit: `${MIN_DIMENSIONS.width}-${MIN_DIMENSIONS.height}`,
+        }),
       }
     ),
 });
 
-function formatBytes(bytes, decimals = 2) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return (
-    Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
-  );
-}
+const validateFile = async () => {
+  const result = await schema.safeParseAsync({ file: state.file });
+  if (!result.success) {
+    state.errors = z.treeifyError(result.error);
+    toast.add({
+      color: "error",
+      description: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
+    });
+    return false;
+  }
+  state.errors = {};
+  return true;
+};
+
+const handleFileChange = async (file) => {
+  if (!file) {
+    form.value.file = null;
+    return;
+  }
+  if (!(await validateFile())) {
+    state.file = undefined;
+    form.value.file = null;
+    return;
+  }
+  form.value.file = file;
+};
 
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
@@ -153,6 +183,7 @@ async function submitReply() {
     toast.add({ color: "success", description: $t("reply.success") });
     form.value = { author: "", content: "", file: null };
     state.file = undefined;
+    state.errors = {};
     resetCaptchaReply();
     triggerReload();
   } catch (error) {
@@ -561,16 +592,13 @@ const closeImageZoom = () => {
               name="file"
               :label="$t('thread.file')"
               :description="$t('thread.file.description')"
+              :error="state.errors.file?.[0]"
             >
               <UFileUpload
                 v-slot="{ open, removeFile }"
                 v-model="state.file"
                 accept="image/*"
-                @update:modelValue="
-                  (file) => {
-                    form.file = file;
-                  }
-                "
+                @update:modelValue="handleFileChange"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <UAvatar
@@ -601,7 +629,7 @@ const closeImageZoom = () => {
                     class="p-0"
                     @click="
                       removeFile();
-                      form.file = undefined;
+                      form.file = null;
                     "
                   />
                 </p>
@@ -688,7 +716,11 @@ const closeImageZoom = () => {
                   variant="outline"
                   color="secondary"
                 >
-                  {{ captchaReport ? $t("captcha.refresh") : $t("captcha.generate") }}
+                  {{
+                    captchaReport
+                      ? $t("captcha.refresh")
+                      : $t("captcha.generate")
+                  }}
                 </UButton>
               </div>
             </div>
