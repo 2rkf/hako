@@ -21,6 +21,8 @@ useHead({
 const g_faqs = [
   { q: "faq_g_q1", a: "faq_g_a1" },
   { q: "faq_g_q2", a: "faq_g_a2", hasRuleLink: true },
+  { q: "faq_g_q3", a: "faq_g_a3" },
+  { q: "faq_g_q4", a: "faq_g_a4" },
 ];
 
 const p_faqs = [
