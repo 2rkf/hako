@@ -1,11 +1,13 @@
 <script setup>
 import { parseBBCode } from "~~/server/utils/bbcode";
 import { useCaptcha } from "~/composables/useCaptcha";
+import { useClipboard } from "@vueuse/core";
 import * as z from "zod";
 
 const { triggerReload } = useThreadStore();
 const props = defineProps(["thread"]);
 const toast = useToast();
+const { copy, isSupported } = useClipboard();
 
 const {
   captcha: captchaReport,
@@ -102,7 +104,9 @@ const validateFile = async () => {
     state.errors = z.treeifyError(result.error);
     toast.add({
       color: "error",
-      description: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
+      description: $t("thread.file.error", {
+        limit: formatBytes(MAX_FILE_SIZE),
+      }),
     });
     return false;
   }
@@ -273,8 +277,28 @@ const openImageZoom = (url) => {
   imageZoomOpen.value = true;
 };
 
-const closeImageZoom = () => {
-  imageZoomOpen.value = false;
+const copyThreadID = (threadID) => {
+  if (!isSupported.value) {
+    return toast.add({
+      color: "error",
+      description: $t("thread.copyID.unsupported"),
+    });
+  }
+
+  copy(threadID.toString())
+    .then(() => {
+      toast.add({
+        color: "success",
+        description: $t("thread.copyID.success"),
+        title: threadID,
+      });
+    })
+    .catch((err) => {
+      toast.add({
+        color: "error",
+        description: $t("thread.copyID.error"),
+      });
+    });
 };
 </script>
 
@@ -325,18 +349,31 @@ const closeImageZoom = () => {
               class="cursor-pointer"
               @click="scrollToForm(thread.id)"
             />
-            <UButton
-              variant="ghost"
-              color="error"
-              size="xs"
-              icon="i-lucide-flag"
-              :padded="false"
-              class="cursor-pointer"
-              @click="
-                reportThreadID = thread.id;
-                reportThreadOpen = true;
-              "
-            />
+            <UTooltip :delay-duration="0" :text="$t('thread.copyID')">
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-copy"
+                :padded="false"
+                class="cursor-pointer"
+                @click="copyThreadID(thread.id)"
+              />
+            </UTooltip>
+            <UTooltip :delay-duration="0" :text="$t('thread.report')">
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-flag"
+                :padded="false"
+                class="cursor-pointer"
+                @click="
+                  reportThreadID = thread.id;
+                  reportThreadOpen = true;
+                "
+              />
+            </UTooltip>
           </div>
         </div>
 
@@ -417,18 +454,31 @@ const closeImageZoom = () => {
                 class="cursor-pointer"
                 @click="scrollToForm(reply.id)"
               />
-              <UButton
-                variant="ghost"
-                color="error"
-                size="xs"
-                icon="i-lucide-flag"
-                :padded="false"
-                class="cursor-pointer"
-                @click="
-                  reportThreadID = reply.id;
-                  reportThreadOpen = true;
-                "
-              />
+              <UTooltip :delay-duration="0" :text="$t('thread.copyID')">
+                <UButton
+                  variant="ghost"
+                  color="neutral"
+                  size="xs"
+                  icon="i-lucide-copy"
+                  :padded="false"
+                  class="cursor-pointer"
+                  @click="copyThreadID(reply.id)"
+                />
+              </UTooltip>
+              <UTooltip :delay-duration="0" :text="$t('thread.report')">
+                <UButton
+                  variant="ghost"
+                  color="error"
+                  size="xs"
+                  icon="i-lucide-flag"
+                  :padded="false"
+                  class="cursor-pointer"
+                  @click="
+                    reportThreadID = reply.id;
+                    reportThreadOpen = true;
+                  "
+                />
+              </UTooltip>
             </div>
           </div>
 

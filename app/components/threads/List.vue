@@ -1,13 +1,22 @@
 <script setup>
 import { useCaptcha } from "~/composables/useCaptcha";
 import { parseBBCode } from "~~/server/utils/bbcode";
+import { useClipboard } from "@vueuse/core";
 
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
 const toast = useToast();
+const { copy, isSupported } = useClipboard();
 
-const { captcha, submission, cooldown, getCaptcha, validateCaptcha, resetCaptcha, } = useCaptcha("report");
+const {
+  captcha,
+  submission,
+  cooldown,
+  getCaptcha,
+  validateCaptcha,
+  resetCaptcha,
+} = useCaptcha("report");
 
 const reportReason = ref("");
 const reportThreadOpen = ref(false);
@@ -30,7 +39,7 @@ const reportThread = async () => {
   if (!captcha.value || !captcha.value.svg) {
     return toast.add({
       color: "error",
-      description: $t("captcha.error")
+      description: $t("captcha.error"),
     });
   }
 
@@ -38,7 +47,7 @@ const reportThread = async () => {
     submission.value.captcha = "";
     return toast.add({
       color: "error",
-      description: $t("captcha.onCooldown")
+      description: $t("captcha.onCooldown"),
     });
   }
 
@@ -46,7 +55,7 @@ const reportThread = async () => {
   if (!valid) {
     return toast.add({
       color: "error",
-      description: $t("captcha.error")
+      description: $t("captcha.error"),
     });
   }
 
@@ -111,8 +120,30 @@ const openImageZoom = (url) => {
   imageZoomOpen.value = true;
 };
 
-const closeImageZoom = () => {
-  imageZoomOpen.value = false;
+const copyThreadID = (threadID) => {
+  if (!isSupported.value) {
+    return toast.add({
+      color: "error",
+      description: $t("thread.copyID.unsupported"),
+    });
+  }
+
+  copy(threadID.toString())
+    .then(() => {
+      toast.add({
+        color: "success",
+        description:
+          $t("thread.copyID.success"),
+        title: threadID,
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to copy ID:", err);
+      toast.add({
+        color: "error",
+        description: $t("thread.copyID.error"),
+      });
+    });
 };
 </script>
 
@@ -149,7 +180,9 @@ const closeImageZoom = () => {
           <div class="flex-1">
             <div class="flex flex-wrap gap-2 justify-start sm:justify-start">
               <UBadge
-                v-for="tag in [...thread.tags].sort((a, b) => a.localeCompare(b))"
+                v-for="tag in [...thread.tags].sort((a, b) =>
+                  a.localeCompare(b)
+                )"
                 :key="tag"
                 color="primary"
                 variant="subtle"
@@ -159,19 +192,43 @@ const closeImageZoom = () => {
               </UBadge>
             </div>
           </div>
-          <div class="ml-3 shrink-0">
-            <UButton
-              variant="ghost"
-              color="error"
-              size="xs"
-              icon="i-lucide-flag"
-              :padded="false"
-              class="!m-0 cursor-pointer"
-              @click="
-                reportThreadID = thread.id;
-                reportThreadOpen = true;
-              "
-            />
+          <div class="ml-3 shrink-0 flex gap-1">
+            <UTooltip
+              :delay-duration="0"
+              :text="$t('thread.copyID')"
+            >
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-copy"
+                :padded="false"
+                class="!m-0 cursor-pointer"
+                :ui="{
+                  base: 'relative group',
+                }"
+                @click="copyThreadID(thread.id)"
+              >
+              </UButton>
+            </UTooltip>
+            <UTooltip :delay-duration="0" :text="$t('thread.report')">
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-flag"
+                :padded="false"
+                class="!m-0 cursor-pointer"
+                :ui="{
+                  base: 'relative group',
+                }"
+                @click="
+                  reportThreadID = thread.id;
+                  reportThreadOpen = true;
+                "
+              >
+              </UButton>
+            </UTooltip>
           </div>
         </div>
 
@@ -232,7 +289,9 @@ const closeImageZoom = () => {
           </span>
         </div>
 
-        <div class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect">
+        <div
+          class="text-sm text-midnight-900 dark:text-midnight-400 mt-1 noselect"
+        >
           {{ $t("replies") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
