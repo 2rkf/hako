@@ -22,7 +22,6 @@ const g_faqs = [
   { q: "faq_g_q1", a: "faq_g_a1" },
   { q: "faq_g_q2", a: "faq_g_a2", hasRuleLink: true },
   { q: "faq_g_q3", a: "faq_g_a3" },
-  { q: "faq_g_q4", a: "faq_g_a4" },
 ];
 
 const p_faqs = [
@@ -31,6 +30,9 @@ const p_faqs = [
   { q: "faq_p_q3", a: "faq_p_a3" },
   { q: "faq_p_q4", a: "faq_p_a4" },
   { q: "faq_p_q5", a: "faq_p_a5" },
+  { q: "faq_p_q6", a: "faq_p_a6" },
+  { q: "faq_p_q7", a: "faq_p_a7" },
+  { q: "faq_p_q8", a: "faq_p_a8" },
 ];
 </script>
 
@@ -119,7 +121,7 @@ const p_faqs = [
 
         <UCard class="bg-midnight-50 dark:bg-midnight-900 noselect">
           <template #header>
-            <h2 class="text-lg font-semibold text-primary noselect">
+            <h2 id="general" class="text-lg font-semibold text-primary noselect">
               {{ $t("faq_general") }}
             </h2>
           </template>
@@ -161,7 +163,7 @@ const p_faqs = [
 
         <UCard class="bg-midnight-50 dark:bg-midnight-900 noselect">
           <template #header>
-            <h2 class="text-lg font-semibold text-primary noselect">
+            <h2 id="posting" class="text-lg font-semibold text-primary noselect">
               {{ $t("faq_posting") }}
             </h2>
           </template>
