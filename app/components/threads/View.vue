@@ -1,7 +1,7 @@
 <script setup>
 import { parseBBCode } from "~~/server/utils/bbcode";
 import { useCaptcha } from "~/composables/useCaptcha";
-import { useClipboard } from "@vueuse/core";
+import { useClipboard, useTimeoutFn } from "@vueuse/core";
 import * as z from "zod";
 
 const { triggerReload } = useThreadStore();
@@ -619,6 +619,7 @@ const copyThreadID = (threadID) => {
               </span>
               <NuxtLink
                 :to="`/thread/${thread.id}#${form.replyTo}`"
+                @click="highlightCard(form.replyTo); useTimeoutFn(() => unhighlightCard(form.replyTo), 1000)"
                 class="text-brick-red-400 hover:underline flex items-center gap-1"
               >
                 <span>{{
