@@ -1,3 +1,4 @@
+import { NanoID58 } from "~~/server/utils/nanoid58";
 import { ThreadModel } from "~/models/thread";
 import { ReplyThread } from "~/types/thread";
 import { Response } from "~/types/response";
@@ -29,7 +30,8 @@ export default defineEventHandler(async (event) => {
         threadFile = await uploadThreadFile(file as any);
     }
 
-    const id = crypto.randomUUID();
+    const generator = new NanoID58();
+    const id = generator.generateID();
     const createdAt = new Date();
     const updatedAt = new Date();
 
