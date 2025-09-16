@@ -384,7 +384,10 @@ const copyThreadID = (threadID) => {
         <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
           <span class="noselect">ID: </span>
           <code
-            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+            @click="navigateTo(`#${thread.id}`)"
+            @mouseenter="highlightCard(thread.id)"
+            @mouseleave="unhighlightCard(thread.id)"
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
           >
             {{ thread.id }}
           </code>
@@ -619,7 +622,10 @@ const copyThreadID = (threadID) => {
               </span>
               <NuxtLink
                 :to="`/thread/${thread.id}#${form.replyTo}`"
-                @click="highlightCard(form.replyTo); useTimeoutFn(() => unhighlightCard(form.replyTo), 1000)"
+                @click="
+                  highlightCard(form.replyTo);
+                  useTimeoutFn(() => unhighlightCard(form.replyTo), 1000);
+                "
                 class="text-brick-red-400 hover:underline flex items-center gap-1"
               >
                 <span>{{
