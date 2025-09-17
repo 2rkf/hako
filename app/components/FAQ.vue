@@ -34,6 +34,8 @@ const p_faqs = [
   { q: "faq_p_q7", a: "faq_p_a7" },
   { q: "faq_p_q8", a: "faq_p_a8" },
 ];
+
+const t_faqs = [{ q: "faq_t_q1", a: "faq_t_a1" }];
 </script>
 
 <template>
@@ -76,7 +78,7 @@ const p_faqs = [
             </h2>
           </template>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div>
               <h3 class="text-base font-semibold text-primary mb-2">
                 {{ $t("faq_general") }}
@@ -105,10 +107,30 @@ const p_faqs = [
                 <li
                   class="ml-4"
                   v-for="(item, index) in p_faqs"
-                  :key="`p_${index}`"
+                  :key="`t_${index}`"
                 >
                   <NuxtLink
                     :to="`#posting_${index + 1}`"
+                    class="text-brick-red-400 hover:underline"
+                  >
+                    {{ $t(item.q) }}
+                  </NuxtLink>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="text-base font-semibold text-primary mb-2">
+                {{ $t("faq_tagging") }}
+              </h3>
+              <ul class="list-disc list-inside space-y-1">
+                <li
+                  class="ml-4"
+                  v-for="(item, index) in t_faqs"
+                  :key="`tg_${index}`"
+                >
+                  <NuxtLink
+                    :to="`#tagging_${index + 1}`"
                     class="text-brick-red-400 hover:underline"
                   >
                     {{ $t(item.q) }}
@@ -121,7 +143,10 @@ const p_faqs = [
 
         <UCard class="bg-midnight-50 dark:bg-midnight-900 noselect">
           <template #header>
-            <h2 id="general" class="text-lg font-semibold text-primary noselect">
+            <h2
+              id="general"
+              class="text-lg font-semibold text-primary noselect"
+            >
               {{ $t("faq_general") }}
             </h2>
           </template>
@@ -163,7 +188,10 @@ const p_faqs = [
 
         <UCard class="bg-midnight-50 dark:bg-midnight-900 noselect">
           <template #header>
-            <h2 id="posting" class="text-lg font-semibold text-primary noselect">
+            <h2
+              id="posting"
+              class="text-lg font-semibold text-primary noselect"
+            >
               {{ $t("faq_posting") }}
             </h2>
           </template>
@@ -176,6 +204,51 @@ const p_faqs = [
             >
               <h3
                 :id="`posting_${index + 1}`"
+                class="text-base font-semibold text-primary"
+              >
+                {{ $t(item.q) }}
+              </h3>
+
+              <p
+                v-if="!item.hasRuleLink"
+                class="text-base text-gray-700 dark:text-gray-300 mt-2"
+                v-html="parseBBCode($t(item.a))"
+              />
+
+              <p v-else class="text-base text-gray-700 dark:text-gray-300 mt-2">
+                <i18n-t :keypath="item.a" tag="span">
+                  <template #rule_link>
+                    <NuxtLink
+                      to="/rules"
+                      class="text-brick-red-400 hover:underline"
+                    >
+                      {{ $t("rule") }}
+                    </NuxtLink>
+                  </template>
+                </i18n-t>
+              </p>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard class="bg-midnight-50 dark:bg-midnight-900 noselect">
+          <template #header>
+            <h2
+              id="tagging"
+              class="text-lg font-semibold text-primary noselect"
+            >
+              {{ $t("faq_tagging") }}
+            </h2>
+          </template>
+
+          <div class="space-y-6">
+            <div
+              v-for="(item, index) in t_faqs"
+              :key="index"
+              class="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0 last:pb-0"
+            >
+              <h3
+                :id="`tagging_${index + 1}`"
                 class="text-base font-semibold text-primary"
               >
                 {{ $t(item.q) }}

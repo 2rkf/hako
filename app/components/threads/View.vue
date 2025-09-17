@@ -610,7 +610,6 @@ const copyThreadID = (threadID) => {
               v-model="form.replyTo"
               disabled
               readonly
-              class="mb-2 md:w-2/5 w-full"
             />
 
             <div
