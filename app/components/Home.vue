@@ -50,6 +50,23 @@ useHead({
           <p class="text-base text-gray-700 dark:text-gray-300">
             {{ $t("description2") }}
           </p>
+          <p class="text-base text-gray-700 dark:text-gray-300">
+            <i18n-t keypath="description3" tag="span">
+              <template #rule_link>
+                <NuxtLink
+                  to="/rules"
+                  class="text-brick-red-400 hover:underline"
+                >
+                  {{ $t("rule") }}
+                </NuxtLink>
+              </template>
+              <template #faq_link>
+                <NuxtLink to="/faq" class="text-brick-red-400 hover:underline">
+                  {{ $t("faq") }}
+                </NuxtLink>
+              </template>
+            </i18n-t>
+          </p>
         </div>
       </UCard>
 

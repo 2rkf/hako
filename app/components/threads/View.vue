@@ -1,86 +1,31 @@
 <script setup>
 import { parseBBCode } from "~~/server/utils/bbcode";
-import { fibonacci } from "~~/server/utils/fibonacci";
-import { captchaStorage } from "~~/server/utils/storage";
+import { useCaptcha } from "~/composables/useCaptcha";
+import { useClipboard, useTimeoutFn } from "@vueuse/core";
 import * as z from "zod";
 
 const { triggerReload } = useThreadStore();
 const props = defineProps(["thread"]);
 const toast = useToast();
-const captcha = ref();
-const submission = ref({
-  captcha: "",
-  uuid: "",
-});
+const { copy, isSupported } = useClipboard();
 
-const cooldownGenerateUntil = useCookie("captcha_generate_until");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until");
+const {
+  captcha: captchaReport,
+  submission: submissionReport,
+  cooldown: cooldownReport,
+  getCaptcha: getCaptchaReport,
+  resetCaptcha: resetCaptchaReport,
+  validateCaptcha: validateCaptchaReport,
+} = useCaptcha("report");
 
-const refreshCount = ref(0);
-const cooldown = ref(0);
-let cooldownInterval = null;
-
-const startCooldown = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate" ? 60 : fibonacci(refreshCount.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntil.value = until;
-  } else {
-    cooldownRefreshUntil.value = until;
-    refreshCount.value++;
-  }
-
-  updateCooldown();
-  if (cooldownInterval) clearInterval(cooldownInterval);
-  cooldownInterval = setInterval(updateCooldown, 1000);
-};
-
-const updateCooldown = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldown.value <= 0) {
-    clearInterval(cooldownInterval);
-  }
-};
-
-const getCaptcha = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = !captcha.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCount.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submission.value.uuid;
-  captcha.value = await $fetch("/api/captcha/generate");
-  submission.value.uuid = captcha.value.uuid;
-  submission.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submission.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldown(isGenerate ? "generate" : "refresh");
-};
+const {
+  captcha: captchaReply,
+  submission: submissionReply,
+  cooldown: cooldownReply,
+  resetCaptcha: resetCaptchaReply,
+  getCaptcha: getCaptchaReply,
+  validateCaptcha: validateCaptchaReply,
+} = useCaptcha("reply");
 
 const form = ref({
   author: "",
@@ -91,6 +36,7 @@ const form = ref({
 
 const state = reactive({
   file: undefined,
+  errors: {},
 });
 
 const reportReason = ref("");
@@ -106,13 +52,24 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ];
 
+const formatBytes = (bytes, decimals = 2) => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return (
+    Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  );
+};
+
 const schema = z.object({
   file: z
     .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
-      message: `File size must be less than ${formatBytes(MAX_FILE_SIZE)}`,
+      message: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
     })
     .refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), {
-      message: "Only .jpg, .jpeg, .png and .webp formats are supported",
+      message: $t("thread.file.error.type"),
     })
     .refine(
       (file) =>
@@ -134,21 +91,41 @@ const schema = z.object({
           reader.readAsDataURL(file);
         }),
       {
-        message: `Image dimensions must be between ${MIN_DIMENSIONS.width}x${MIN_DIMENSIONS.height} and ${MAX_DIMENSIONS.width}x${MAX_DIMENSIONS.height} pixels`,
+        message: $t("thread.file.error.pixel", {
+          limit: `${MIN_DIMENSIONS.width}-${MIN_DIMENSIONS.height}`,
+        }),
       }
     ),
 });
 
-function formatBytes(bytes, decimals = 2) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return (
-    Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
-  );
-}
+const validateFile = async () => {
+  const result = await schema.safeParseAsync({ file: state.file });
+  if (!result.success) {
+    state.errors = z.treeifyError(result.error);
+    toast.add({
+      color: "error",
+      description: $t("thread.file.error", {
+        limit: formatBytes(MAX_FILE_SIZE),
+      }),
+    });
+    return false;
+  }
+  state.errors = {};
+  return true;
+};
+
+const handleFileChange = async (file) => {
+  if (!file) {
+    form.value.file = null;
+    return;
+  }
+  if (!(await validateFile())) {
+    state.file = undefined;
+    form.value.file = null;
+    return;
+  }
+  form.value.file = file;
+};
 
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
@@ -165,51 +142,31 @@ function formatDate(date) {
 }
 
 async function submitReply() {
-  if (!submission.value.captcha) {
-    toast.add({
-      color: "error",
-      description: $t("error.emptyFields"),
-    });
+  if (!submissionReply.value.captcha) {
+    toast.add({ color: "error", description: $t("error.emptyFields") });
     return;
   }
 
   if (!form.value.content && !form.value.file) {
-    toast.add({
-      color: "error",
-      description: $t("error.contentOrFile"),
-    });
+    toast.add({ color: "error", description: $t("error.contentOrFile") });
     return;
   }
 
-  if (!captcha.value || !captcha.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
+  if (!captchaReply.value || !captchaReply.value.svg) {
+    toast.add({ color: "error", description: $t("captcha.error") });
     return;
   }
 
-  if (cooldown.value > 0) {
-    submission.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
+  if (cooldownReply.value > 0) {
+    submissionReply.value.captcha = "";
+    toast.add({ color: "error", description: $t("captcha.onCooldown") });
     return;
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submission.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submission.value.captcha = "";
-    return getCaptcha();
+  const valid = await validateCaptchaReply();
+  if (!valid) {
+    toast.add({ color: "error", description: $t("captcha.error") });
+    return;
   }
 
   const payload = new FormData();
@@ -227,53 +184,55 @@ async function submitReply() {
       body: payload,
     });
 
-    toast.add({
-      color: "success",
-      description: "Reply posted successfully",
-    });
-
+    toast.add({ color: "success", description: $t("reply.success") });
     form.value = { author: "", content: "", file: null };
-    submission.value.captcha = "";
     state.file = undefined;
-    captcha.value = undefined;
+    state.errors = {};
+    resetCaptchaReply();
     triggerReload();
   } catch (error) {
-    console.error("Failed to post reply:", error);
-    toast.add({
-      color: "error",
-      description: "Failed to post reply",
-    });
+    toast.add({ color: "error", description: $t("reply.error") });
   }
 }
 
-async function reportThread(threadID) {
+const reportThreadID = ref(null);
+
+async function reportThread() {
   if (reportReason.value.length === 0) {
-    toast.add({
-      color: "error",
-      description: "Please provide a reason for reporting",
-    });
+    toast.add({ color: "error", description: $t("error.emptyFields") });
+    return;
+  }
+
+  if (!captchaReport.value || !captchaReport.value.svg) {
+    toast.add({ color: "error", description: $t("captcha.error") });
+    return;
+  }
+
+  if (cooldownReport.value > 0) {
+    submissionReport.value.captcha = "";
+    toast.add({ color: "error", description: $t("captcha.onCooldown") });
+    return;
+  }
+
+  const valid = await validateCaptchaReport();
+  if (!valid) {
+    toast.add({ color: "error", description: $t("captcha.error") });
     return;
   }
 
   try {
-    // await $fetch(`/api/threads/${threadID}/report`, {
-    //   method: "POST",
-    //   body: { reason: reportReason.value },
-    // });
-
-    toast.add({
-      color: "success",
-      description: "Thread reported successfully",
+    await $fetch(`/api/threads/${reportThreadID.value}/report`, {
+      method: "POST",
+      body: { reason: reportReason.value },
     });
+
+    toast.add({ color: "success", description: $t("thread.report.success") });
 
     reportReason.value = "";
+    resetCaptchaReport();
     reportThreadOpen.value = false;
   } catch (error) {
-    console.error("Report submission failed:", error);
-    toast.add({
-      color: "error",
-      description: "Failed to report thread",
-    });
+    toast.add({ color: "error", description: $t("thread.report.error") });
   }
 }
 
@@ -293,27 +252,11 @@ const highlightedCards = ref(new Set());
 function highlightCard(id) {
   highlightedCards.value.add(id);
 }
-
 function unhighlightCard(id) {
   highlightedCards.value.delete(id);
 }
 
 onMounted(() => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldown.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldown, 1000);
-  }
-
   if (window.location.hash) {
     setTimeout(() => {
       const element = document.getElementById(
@@ -325,6 +268,38 @@ onMounted(() => {
     }, 1000);
   }
 });
+
+const imageZoomOpen = ref(false);
+const imageZoomUrl = ref("");
+
+const openImageZoom = (url) => {
+  imageZoomUrl.value = url;
+  imageZoomOpen.value = true;
+};
+
+const copyThreadID = (threadID) => {
+  if (!isSupported.value) {
+    return toast.add({
+      color: "error",
+      description: $t("thread.copyID.unsupported"),
+    });
+  }
+
+  copy(threadID.toString())
+    .then(() => {
+      toast.add({
+        color: "success",
+        description: $t("thread.copyID.success"),
+        title: threadID,
+      });
+    })
+    .catch((err) => {
+      toast.add({
+        color: "error",
+        description: $t("thread.copyID.error"),
+      });
+    });
+};
 </script>
 
 <template>
@@ -374,15 +349,31 @@ onMounted(() => {
               class="cursor-pointer"
               @click="scrollToForm(thread.id)"
             />
-            <UButton
-              variant="ghost"
-              color="error"
-              size="xs"
-              icon="i-lucide-flag"
-              :padded="false"
-              disabled
-              @click="reportThreadOpen = true"
-            />
+            <UTooltip :delay-duration="0" :text="$t('thread.copyID')">
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-copy"
+                :padded="false"
+                class="cursor-pointer"
+                @click="copyThreadID(thread.id)"
+              />
+            </UTooltip>
+            <UTooltip :delay-duration="0" :text="$t('thread.report')">
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-flag"
+                :padded="false"
+                class="cursor-pointer"
+                @click="
+                  reportThreadID = thread.id;
+                  reportThreadOpen = true;
+                "
+              />
+            </UTooltip>
           </div>
         </div>
 
@@ -393,7 +384,10 @@ onMounted(() => {
         <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
           <span class="noselect">ID: </span>
           <code
-            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+            @click="navigateTo(`#${thread.id}`)"
+            @mouseenter="highlightCard(thread.id)"
+            @mouseleave="unhighlightCard(thread.id)"
+            class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
           >
             {{ thread.id }}
           </code>
@@ -405,7 +399,8 @@ onMounted(() => {
           <img
             :src="thread.file.url"
             :alt="thread.file.name"
-            class="rounded-md max-h-96 object-contain"
+            class="rounded-md max-h-96 object-contain noselect cursor-pointer hover:opacity-80 transition-opacity"
+            @click="openImageZoom(thread.file.url)"
           />
         </div>
 
@@ -462,22 +457,41 @@ onMounted(() => {
                 class="cursor-pointer"
                 @click="scrollToForm(reply.id)"
               />
-              <UButton
-                variant="ghost"
-                color="error"
-                size="xs"
-                icon="i-lucide-flag"
-                :padded="false"
-                disabled
-                @click="reportThreadOpen = true"
-              />
+              <UTooltip :delay-duration="0" :text="$t('thread.copyID')">
+                <UButton
+                  variant="ghost"
+                  color="neutral"
+                  size="xs"
+                  icon="i-lucide-copy"
+                  :padded="false"
+                  class="cursor-pointer"
+                  @click="copyThreadID(reply.id)"
+                />
+              </UTooltip>
+              <UTooltip :delay-duration="0" :text="$t('thread.report')">
+                <UButton
+                  variant="ghost"
+                  color="error"
+                  size="xs"
+                  icon="i-lucide-flag"
+                  :padded="false"
+                  class="cursor-pointer"
+                  @click="
+                    reportThreadID = reply.id;
+                    reportThreadOpen = true;
+                  "
+                />
+              </UTooltip>
             </div>
           </div>
 
           <p class="text-xs text-midnight-500 dark:text-midnight-600 mb-1">
             <span class="noselect">ID: </span>
             <code
-              class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
+              @click="navigateTo(`#${reply.id}`)"
+              @mouseenter="highlightCard(reply.id)"
+              @mouseleave="unhighlightCard(reply.id)"
+              class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded cursor-pointer hover:bg-midnight-200 dark:hover:bg-midnight-700 transition-colors"
             >
               {{ reply.id }}
             </code>
@@ -507,7 +521,8 @@ onMounted(() => {
             <img
               :src="reply.file.url"
               :alt="reply.file.name"
-              class="rounded-md max-h-64 object-contain"
+              class="rounded-md max-h-64 object-contain noselect cursor-pointer hover:opacity-80 transition-opacity"
+              @click="openImageZoom(reply.file.url)"
             />
           </div>
 
@@ -553,25 +568,29 @@ onMounted(() => {
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-4">
                 <span
-                  v-if="cooldown > 0"
+                  v-if="cooldownReply > 0"
                   class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
                 >
-                  {{ Math.ceil(cooldown) }}{{ $t("second") }}
+                  {{ Math.ceil(cooldownReply) }}{{ $t("second") }}
                 </span>
 
                 <span
-                  v-else-if="captcha"
+                  v-else-if="captchaReply"
                   class="border-midnight-400 dark:border-midnight-600 border-2"
-                  v-html="captcha.svg"
+                  v-html="captchaReply.svg"
                 />
 
                 <UButton
-                  :disabled="cooldown > 0"
-                  @click="getCaptcha()"
+                  :disabled="cooldownReply > 0"
+                  @click="getCaptchaReply()"
                   variant="outline"
                   color="secondary"
                 >
-                  {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+                  {{
+                    captchaReply
+                      ? $t("captcha.refresh")
+                      : $t("captcha.generate")
+                  }}
                 </UButton>
               </div>
             </div>
@@ -579,7 +598,7 @@ onMounted(() => {
               :ui="{ base: 'bg-white dark:bg-midnight-800' }"
               maxlength="6"
               class="mt-2"
-              v-model="submission.captcha"
+              v-model="submissionReply.captcha"
             />
           </UFormField>
 
@@ -591,7 +610,6 @@ onMounted(() => {
               v-model="form.replyTo"
               disabled
               readonly
-              class="mb-2 md:w-2/5 w-full"
             />
 
             <div
@@ -603,6 +621,10 @@ onMounted(() => {
               </span>
               <NuxtLink
                 :to="`/thread/${thread.id}#${form.replyTo}`"
+                @click="
+                  highlightCard(form.replyTo);
+                  useTimeoutFn(() => unhighlightCard(form.replyTo), 1000);
+                "
                 class="text-brick-red-400 hover:underline flex items-center gap-1"
               >
                 <span>{{
@@ -626,16 +648,13 @@ onMounted(() => {
               name="file"
               :label="$t('thread.file')"
               :description="$t('thread.file.description')"
+              :error="state.errors.file?.[0]"
             >
               <UFileUpload
                 v-slot="{ open, removeFile }"
                 v-model="state.file"
                 accept="image/*"
-                @update:modelValue="
-                  (file) => {
-                    form.file = file;
-                  }
-                "
+                @update:modelValue="handleFileChange"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <UAvatar
@@ -666,7 +685,7 @@ onMounted(() => {
                     class="p-0"
                     @click="
                       removeFile();
-                      form.file = undefined;
+                      form.file = null;
                     "
                   />
                 </p>
@@ -674,15 +693,39 @@ onMounted(() => {
             </UFormField>
           </UForm>
 
-          <div class="flex justify-end">
+          <div class="flex flex-col items-end gap-2 space-y-2">
             <UButton
               type="submit"
               variant="outline"
               color="primary"
               class="text-gray-700 dark:text-gray-300 px-4 py-2 rounded transition-colors noselect cursor-pointer"
             >
-              {{ $t("reply") }}
+              {{ $t("reply.post") }}
             </UButton>
+
+            <p
+              class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect"
+            >
+              <UIcon name="i-lucide-asterisk" class="w-3 h-3 text-red-500" />
+              <i18n-t keypath="read_rules" tag="span">
+                <template #rule_link>
+                  <NuxtLink
+                    to="/rules"
+                    class="text-brick-red-400 hover:underline"
+                  >
+                    {{ $t("rule") }}
+                  </NuxtLink>
+                </template>
+                <template #faq_link>
+                  <NuxtLink
+                    to="/faq"
+                    class="text-brick-red-400 hover:underline"
+                  >
+                    {{ $t("faq") }}
+                  </NuxtLink>
+                </template>
+              </i18n-t>
+            </p>
           </div>
         </form>
       </UCard>
@@ -707,12 +750,50 @@ onMounted(() => {
             />
           </UFormField>
 
+          <UFormField class="noselect" :label="$t('captcha')" required>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-4">
+                <span
+                  v-if="cooldownReport > 0"
+                  class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+                >
+                  {{ Math.ceil(cooldownReport) }}{{ $t("second") }}
+                </span>
+
+                <span
+                  v-else-if="captchaReport"
+                  class="border-midnight-400 dark:border-midnight-600 border-2"
+                  v-html="captchaReport.svg"
+                />
+
+                <UButton
+                  :disabled="cooldownReport > 0"
+                  @click="getCaptchaReport()"
+                  variant="outline"
+                  color="secondary"
+                >
+                  {{
+                    captchaReport
+                      ? $t("captcha.refresh")
+                      : $t("captcha.generate")
+                  }}
+                </UButton>
+              </div>
+            </div>
+            <UInput
+              :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+              maxlength="6"
+              class="mt-2"
+              v-model="submissionReport.captcha"
+            />
+          </UFormField>
+
           <div class="flex justify-end gap-2">
             <UButton
               :label="$t('report')"
               color="error"
               variant="solid"
-              @click="reportThread(thread.id)"
+              @click="reportThread"
             />
             <UButton
               :label="$t('cancel')"
@@ -721,6 +802,18 @@ onMounted(() => {
               @click="reportThreadOpen = false"
             />
           </div>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="imageZoomOpen" :close="true">
+      <template #body>
+        <div class="flex flex-col items-center space-y-4">
+          <img
+            :src="imageZoomUrl"
+            :alt="$t('thread.image')"
+            class="max-w-full max-h-[80vh] object-contain rounded-md"
+          />
         </div>
       </template>
     </UModal>

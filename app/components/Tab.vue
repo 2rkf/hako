@@ -11,7 +11,7 @@ const { locale, locales, setLocale } = useI18n();
         size="xl"
         color="neutral"
         variant="ghost"
-        class="text-brick-red-500 dark:text-brick-red-200"
+        class="text-brick-red-500 dark:text-brick-red-200 noselect"
       />
 
       <template #content>

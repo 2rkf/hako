@@ -14,11 +14,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   i18n: {
     locales: [
-      { code: "en", name: "English", file: "en.json" },
-      { code: "ja", name: "日本語", file: "ja.json" }
+      { code: "en", name: "English" },
+      { code: "ja", name: "日本語" }
     ],
     defaultLocale: "en",
-    langDir: "../locales",
     strategy: "no_prefix",
   },
   modules: ["@nuxt/ui", "@nuxt/eslint", "@nuxtjs/i18n"],

@@ -7,6 +7,8 @@ export default defineEventHandler(async () => {
     const objectThreads = threads.map(thread => ({
         ...thread,
         createdAt: thread.createdAt.toISOString(),
+        replies: thread.replies?.length || 0,
+        reports: thread.reports?.length || 0,
         updatedAt: thread.updatedAt.toISOString()
     }));
 

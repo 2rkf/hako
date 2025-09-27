@@ -1,32 +1,17 @@
 <script setup>
 import * as z from "zod";
-import { captchaStorage } from "~~/server/utils/storage";
-import { fibonacci } from "~~/server/utils/fibonacci";
+import { useCaptcha } from "~/composables/useCaptcha";
 
 const { triggerReload } = useThreadStore();
 const toast = useToast();
-const captcha = ref();
-const submission = ref({
-  captcha: "",
-  uuid: "",
-});
-const languages = ref([
-  {
-    label: "English",
-    value: "en",
-  },
-  {
-    label: "日本語",
-    value: "ja",
-  },
-]);
-
-const cooldownGenerateUntil = useCookie("captcha_generate_until");
-const cooldownRefreshUntil = useCookie("captcha_refresh_until");
-
-const refreshCount = ref(0);
-const cooldown = ref(0);
-let cooldownInterval = null;
+const {
+  captcha,
+  submission,
+  cooldown,
+  getCaptcha,
+  validateCaptcha,
+  resetCaptcha,
+} = useCaptcha("create");
 
 const newThread = ref({
   title: "",
@@ -37,69 +22,16 @@ const newThread = ref({
   file: undefined,
 });
 
-const startCooldown = (type = "generate") => {
-  const now = Date.now();
-  const cooldownTime =
-    type === "generate"
-      ? 60
-      : fibonacci(refreshCount.value) * 5;
-  const until = now + cooldownTime * 1000;
-
-  if (type === "generate") {
-    cooldownGenerateUntil.value = until;
-  } else {
-    cooldownRefreshUntil.value = until;
-    refreshCount.value++;
-  }
-
-  updateCooldown();
-  if (cooldownInterval) clearInterval(cooldownInterval);
-  cooldownInterval = setInterval(updateCooldown, 1000);
-};
-
-const updateCooldown = () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = generateLeft > refreshLeft;
-  cooldown.value = Math.max(0, isGenerate ? generateLeft : refreshLeft) / 1000;
-
-  if (cooldown.value <= 0) {
-    clearInterval(cooldownInterval);
-  }
-};
-
-const getCaptcha = async () => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const isGenerate = !captcha.value;
-  const isOnCooldown = isGenerate ? generateLeft > 0 : refreshLeft > 0;
-
-  if (isGenerate) refreshCount.value = 0;
-  if (isOnCooldown) return;
-
-  const previousUUID = submission.value.uuid;
-  captcha.value = await $fetch("/api/captcha/generate");
-  submission.value.uuid = captcha.value.uuid;
-  submission.value.captcha = "";
-
-  if (previousUUID && previousUUID !== submission.value.uuid) {
-    captchaStorage.delete(previousUUID);
-  }
-
-  startCooldown(isGenerate ? "generate" : "refresh");
-};
+const languages = ref([
+  {
+    label: "English",
+    value: "en",
+  },
+  {
+    label: "日本語",
+    value: "ja",
+  },
+]);
 
 const createThread = async () => {
   if (
@@ -117,34 +49,17 @@ const createThread = async () => {
   }
 
   if (!captcha.value || !captcha.value.svg) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   if (cooldown.value > 0) {
     submission.value.captcha = "";
-    toast.add({
-      color: "error",
-      description: $t("captcha.onCooldown"),
-    });
-    return;
+    return toast.add({ color: "error", description: $t("captcha.onCooldown") });
   }
 
-  const captchaResponse = await $fetch("/api/captcha/submit", {
-    method: "POST",
-    body: submission.value,
-  });
-
-  if (captchaResponse.status !== 200) {
-    toast.add({
-      color: "error",
-      description: $t("captcha.error"),
-    });
-    submission.value.captcha = "";
-    return getCaptcha();
+  const valid = await validateCaptcha();
+  if (!valid) {
+    return toast.add({ color: "error", description: $t("captcha.error") });
   }
 
   const formData = new FormData();
@@ -170,8 +85,7 @@ const createThread = async () => {
     file: undefined,
   };
   state.file = undefined;
-  submission.value.captcha = "";
-  captcha.value = undefined;
+  resetCaptcha();
 
   await $fetch("/api/threads", {
     method: "POST",
@@ -204,14 +118,15 @@ const formatBytes = (bytes, decimals = 2) => {
 
 const schema = z.object({
   file: z
-    .refine((file) => file.size <= MAX_FILE_SIZE, {
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
       message: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
     })
-    .refine((file) => ACCEPTED_IMAGE_TYPES.includes(file.type), {
+    .refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), {
       message: $t("thread.file.error.type"),
     })
     .refine(
       (file) =>
+        !file ||
         new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -238,28 +153,39 @@ const schema = z.object({
 
 const state = reactive({
   file: undefined,
+  errors: {},
 });
+
+const validateFile = async () => {
+  const result = await schema.safeParseAsync({ file: state.file });
+  if (!result.success) {
+    state.errors = z.treeifyError(result.error);
+    toast.add({
+      color: "error",
+      description: $t("thread.file.error", { limit: formatBytes(MAX_FILE_SIZE) }),
+    });
+    return false;
+  }
+  state.errors = {};
+  return true;
+};
+
+const handleFileChange = async (file) => {
+  if (!file) {
+    newThread.value.file = undefined;
+    return;
+  }
+  if (!(await validateFile())) {
+    state.file = undefined;
+    newThread.value.file = undefined;
+    return;
+  }
+  newThread.value.file = file;
+};
 
 function createObjectUrl(file) {
   return URL.createObjectURL(file);
 }
-
-onMounted(() => {
-  const now = Date.now();
-  const generateLeft = cooldownGenerateUntil.value
-    ? cooldownGenerateUntil.value - now
-    : 0;
-  const refreshLeft = cooldownRefreshUntil.value
-    ? cooldownRefreshUntil.value - now
-    : 0;
-
-  const remaining = Math.max(generateLeft, refreshLeft);
-  if (remaining > 0) {
-    cooldown.value = remaining / 1000;
-
-    cooldownInterval = setInterval(updateCooldown, 1000);
-  }
-});
 </script>
 
 <template>
@@ -283,7 +209,7 @@ onMounted(() => {
       <UFormField class="noselect" :label="$t('thread.tags')" required>
         <UInputTags
           :ui="{ base: 'bg-white dark:bg-midnight-800' }"
-          :max-length=10
+          :max="10"
           v-model="newThread.tags"
         />
       </UFormField>
@@ -354,16 +280,13 @@ onMounted(() => {
           name="file"
           :label="$t('thread.file')"
           :description="$t('thread.file.description')"
+          :error="state.errors.file?.[0]"
         >
           <UFileUpload
             v-slot="{ open, removeFile }"
             v-model="state.file"
             accept="image/*"
-            @update:modelValue="
-              (file) => {
-                newThread.file = file;
-              }
-            "
+            @update:modelValue="handleFileChange"
           >
             <div class="flex flex-wrap items-center gap-3">
               <UAvatar
@@ -402,7 +325,7 @@ onMounted(() => {
         </UFormField>
       </UForm>
 
-      <div class="flex justify-end">
+      <div class="flex flex-col items-end gap-2 space-y-2">
         <UButton
           type="submit"
           variant="outline"
@@ -411,6 +334,24 @@ onMounted(() => {
         >
           {{ $t("thread.post") }}
         </UButton>
+
+        <p
+          class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 noselect"
+        >
+          <UIcon name="i-lucide-asterisk" class="w-3 h-3 text-red-500" />
+          <i18n-t keypath="read_rules" tag="span">
+            <template #rule_link>
+              <NuxtLink to="/rules" class="text-brick-red-400 hover:underline">
+                {{ $t("rule") }}
+              </NuxtLink>
+            </template>
+            <template #faq_link>
+              <NuxtLink to="/faq" class="text-brick-red-400 hover:underline">
+                {{ $t("faq") }}
+              </NuxtLink>
+            </template>
+          </i18n-t>
+        </p>
       </div>
     </form>
   </UCard>

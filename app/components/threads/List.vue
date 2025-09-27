@@ -1,17 +1,33 @@
 <script setup>
+import { useCaptcha } from "~/composables/useCaptcha";
 import { parseBBCode } from "~~/server/utils/bbcode";
+import { useClipboard } from "@vueuse/core";
 
 const threads = ref([]);
 const loading = ref(true);
 const { reloadTrigger } = useThreadStore();
 const toast = useToast();
+const { copy, isSupported } = useClipboard();
+
+const {
+  captcha,
+  submission,
+  cooldown,
+  getCaptcha,
+  validateCaptcha,
+  resetCaptcha,
+} = useCaptcha("report");
 
 const reportReason = ref("");
 const reportThreadOpen = ref(false);
+
 const closeReportModal = () => {
   reportThreadOpen.value = !reportThreadOpen.value;
 };
-const reportThread = async (_threadID) => {
+
+const reportThreadID = ref(null);
+
+const reportThread = async () => {
   if (reportReason.value.length === 0) {
     toast.add({
       color: "error",
@@ -20,16 +36,44 @@ const reportThread = async (_threadID) => {
     return;
   }
 
+  if (!captcha.value || !captcha.value.svg) {
+    return toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+  }
+
+  if (cooldown.value > 0) {
+    submission.value.captcha = "";
+    return toast.add({
+      color: "error",
+      description: $t("captcha.onCooldown"),
+    });
+  }
+
+  const valid = await validateCaptcha();
+  if (!valid) {
+    return toast.add({
+      color: "error",
+      description: $t("captcha.error"),
+    });
+  }
+
   try {
-    // await $fetch(`/api/threads/${threadID}/report`, {
-    //   method: "POST",
-    //   body: { reason: reportReason.value },
-    // });
+    await $fetch(`/api/threads/${reportThreadID.value}/report`, {
+      method: "POST",
+      body: {
+        reason: reportReason.value,
+      },
+    });
+
     toast.add({
       color: "success",
       description: $t("thread.report.success"),
     });
+
     reportReason.value = "";
+    resetCaptcha();
   } catch (error) {
     console.error("Report submission failed:", error);
     toast.add({
@@ -67,6 +111,40 @@ const paginatedThreads = computed(() => {
   const end = start + limit;
   return threads.value.slice(start, end);
 });
+
+const imageZoomOpen = ref(false);
+const imageZoomUrl = ref("");
+
+const openImageZoom = (url) => {
+  imageZoomUrl.value = url;
+  imageZoomOpen.value = true;
+};
+
+const copyThreadID = (threadID) => {
+  if (!isSupported.value) {
+    return toast.add({
+      color: "error",
+      description: $t("thread.copyID.unsupported"),
+    });
+  }
+
+  copy(threadID.toString())
+    .then(() => {
+      toast.add({
+        color: "success",
+        description:
+          $t("thread.copyID.success"),
+        title: threadID,
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to copy ID:", err);
+      toast.add({
+        color: "error",
+        description: $t("thread.copyID.error"),
+      });
+    });
+};
 </script>
 
 <template>
@@ -114,54 +192,43 @@ const paginatedThreads = computed(() => {
               </UBadge>
             </div>
           </div>
-
-          <div class="ml-3 shrink-0">
-            <UModal
-              :title="$t('thread.report')"
-              :description="$t('thread.report.info')"
-              :close="false"
-              v-model:open="reportThreadOpen"
+          <div class="ml-3 shrink-0 flex gap-1">
+            <UTooltip
+              :delay-duration="0"
+              :text="$t('thread.copyID')"
             >
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-copy"
+                :padded="false"
+                class="!m-0 cursor-pointer"
+                :ui="{
+                  base: 'relative group',
+                }"
+                @click="copyThreadID(thread.id)"
+              >
+              </UButton>
+            </UTooltip>
+            <UTooltip :delay-duration="0" :text="$t('thread.report')">
               <UButton
                 variant="ghost"
                 color="error"
                 size="xs"
                 icon="i-lucide-flag"
                 :padded="false"
-                class="!m-0"
-                disabled
-              />
-
-              <template #body>
-                <div class="space-y-4 noselect">
-                  <UFormField :label="$t('reason')" required>
-                    <UInput
-                      :ui="{ base: 'bg-midnight-50 dark:bg-midnight-800' }"
-                      v-model="reportReason"
-                      class="w-full"
-                      size="lg"
-                      maxlength="100"
-                      variant="soft"
-                    />
-                  </UFormField>
-
-                  <div class="flex justify-end gap-2">
-                    <UButton
-                      :label="$t('report')"
-                      color="error"
-                      variant="solid"
-                      @click="reportThread(thread.id)"
-                    />
-                    <UButton
-                      :label="$t('cancel')"
-                      color="neutral"
-                      variant="outline"
-                      @click="closeReportModal"
-                    />
-                  </div>
-                </div>
-              </template>
-            </UModal>
+                class="!m-0 cursor-pointer"
+                :ui="{
+                  base: 'relative group',
+                }"
+                @click="
+                  reportThreadID = thread.id;
+                  reportThreadOpen = true;
+                "
+              >
+              </UButton>
+            </UTooltip>
           </div>
         </div>
 
@@ -175,15 +242,17 @@ const paginatedThreads = computed(() => {
           <span class="noselect">ID: </span>
           <code
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.id }}</code
           >
+            {{ thread.id }}
+          </code>
         </p>
 
         <div v-if="thread.file" class="my-2">
           <img
             :src="thread.file.url"
             alt="Thread Image"
-            class="rounded-md max-h-64 object-cover noselect"
+            class="rounded-md max-h-64 object-cover noselect cursor-pointer hover:opacity-80 transition-opacity"
+            @click="openImageZoom(thread.file.url)"
           />
         </div>
 
@@ -199,13 +268,14 @@ const paginatedThreads = computed(() => {
         <div
           class="text-sm text-midnight-900 dark:text-midnight-400 flex justify-between mt-4 noselect"
         >
-          <span
-            >{{ $t("by") }}
+          <span>
+            {{ $t("by") }}
             <span
               class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-              >{{ thread.author }}</span
-            ></span
-          >
+            >
+              {{ thread.author }}
+            </span>
+          </span>
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
           >
@@ -225,8 +295,9 @@ const paginatedThreads = computed(() => {
           {{ $t("replies") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
-            >{{ thread.replies?.length || 0 }}</span
           >
+            {{ thread.replies }}
+          </span>
           | {{ $t("replies.last") }}:
           <span
             class="bg-midnight-100 text-brick-red-300 dark:text-brick-red-200 dark:bg-midnight-800 px-1 rounded"
@@ -241,6 +312,7 @@ const paginatedThreads = computed(() => {
           </span>
         </div>
       </UCard>
+
       <div class="flex justify-center pt-4">
         <UPagination
           :page="page"
@@ -251,4 +323,85 @@ const paginatedThreads = computed(() => {
       </div>
     </div>
   </UCard>
+
+  <UModal
+    :title="$t('thread.report')"
+    :description="$t('thread.report.info')"
+    :close="false"
+    v-model:open="reportThreadOpen"
+  >
+    <template #body>
+      <div class="space-y-4 noselect">
+        <UFormField :label="$t('reason')" required>
+          <UInput
+            :ui="{ base: 'bg-midnight-50 dark:bg-midnight-800' }"
+            v-model="reportReason"
+            class="w-full"
+            size="lg"
+            maxlength="100"
+            variant="soft"
+          />
+        </UFormField>
+
+        <UFormField class="noselect" :label="$t('captcha')" required>
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-4">
+              <span
+                v-if="cooldown > 0"
+                class="text-center text-sm text-brick-red-400 font-semibold py-3 px-6 border-2 border-midnight-400 dark:border-midnight-600 rounded"
+              >
+                {{ Math.ceil(cooldown) }}{{ $t("second") }}
+              </span>
+              <span
+                v-else-if="captcha"
+                class="border-midnight-400 dark:border-midnight-600 border-2"
+                v-html="captcha.svg"
+              />
+              <UButton
+                :disabled="cooldown > 0"
+                @click="getCaptcha()"
+                variant="outline"
+                color="secondary"
+              >
+                {{ captcha ? $t("captcha.refresh") : $t("captcha.generate") }}
+              </UButton>
+            </div>
+          </div>
+          <UInput
+            :ui="{ base: 'bg-white dark:bg-midnight-800' }"
+            maxlength="6"
+            class="mt-2"
+            v-model="submission.captcha"
+          />
+        </UFormField>
+
+        <div class="flex justify-end gap-2">
+          <UButton
+            :label="$t('report')"
+            color="error"
+            variant="solid"
+            @click="reportThread()"
+          />
+          <UButton
+            :label="$t('cancel')"
+            color="neutral"
+            variant="outline"
+            @click="closeReportModal"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="imageZoomOpen" :close="true">
+    <template #body>
+      <div class="flex flex-col items-center space-y-4">
+        <img
+          :src="imageZoomUrl"
+          :alt="$t('thread.image')"
+          class="max-w-full max-h-[80vh] object-contain rounded-md"
+        />
+      </div>
+    </template>
+  </UModal>
 </template>

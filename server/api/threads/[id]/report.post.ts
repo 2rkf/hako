@@ -3,55 +3,60 @@ import { ThreadReport } from "~/types/thread";
 import { ThreadModel } from "~/models/thread";
 
 export default defineEventHandler(async (event) => {
-    const threadID = event.context.params?.id;
+  const threadID = event.context.params?.id;
+  const body = await readBody(event) as { reason?: string };
 
-    if (!threadID) {
-        return {
-            message: "Thread ID is required",
-            status: 400,
-        } as Response;
-    }
+  if (!threadID) {
+    return {
+      message: "Thread ID is required",
+      status: 400,
+    } as Response;
+  }
 
-    const formData = await readMultipartFormData(event);
+  const reason = body.reason;
+  const reporter = getRequestIP(event, { xForwardedFor: true }) || "Unknown";
 
-    if (!formData) {
-        return {
-            message: "No form data provided",
-            status: 400,
-        } as Response;
-    }
+  if (!reason || !reporter) {
+    return {
+      message: "Reason and reporter are required",
+      status: 400,
+    } as Response;
+  }
 
-    const reason = formData.find((f) => f.name === "reason")?.data?.toString();
-    const reporter = formData.find((f) => f.name === "reporter")?.data?.toString();
+  const report: ThreadReport = {
+    reason,
+    reporter,
+    reportedAt: new Date(),
+  };
 
-    if (!reason || !reporter) {
-        return {
-            message: "Reason and reporter are required",
-            status: 400,
-        } as Response;
-    }
+  const updatedThread = await ThreadModel.findOneAndUpdate(
+    { id: threadID },
+    { $push: { reports: report } },
+    { new: true }
+  );
 
-    const reportedAt = new Date();
-
-    const report: ThreadReport = {
-        reason,
-        reporter,
-        reportedAt
+  if (updatedThread) {
+    return {
+      message: "Report submitted successfully (thread)",
+      report,
     };
+  }
 
-    const thread = await ThreadModel.findOne({ id: threadID });
+  const updatedReplyThread = await ThreadModel.findOneAndUpdate(
+    { "replies.id": threadID },
+    { $push: { "replies.$.reports": report } },
+    { new: true }
+  );
 
-    if (!thread) {
-        return {
-            message: "Thread not found",
-            status: 404,
-        } as Response;
-    }
+  if (updatedReplyThread) {
+    return {
+      message: "Report submitted successfully (reply)",
+      report,
+    };
+  }
 
-    thread.reports = thread.reports || [];
-    thread.reports.push(report);
-
-    await thread.save();
-
-    return { message: "Report submitted successfully", report };
+  return {
+    message: "Thread or reply not found",
+    status: 404,
+  } as Response;
 });
